@@ -2761,20 +2761,9 @@ impl GitGraph {
             CommitDataState::Loading(_) => (t!("Loading…"), "".into(), None),
         };
 
+        let date_format = ProjectSettings::get_global(cx).git.graph_date_format;
         let date_string = commit_timestamp
-            .and_then(|ts| OffsetDateTime::from_unix_timestamp(ts).ok())
-            .map(|datetime| {
-                let local_offset = UtcOffset::current_local_offset().unwrap_or(UtcOffset::UTC);
-                let local_datetime = datetime.to_offset(local_offset);
-                let description = match ProjectSettings::get_global(cx).git.graph_date_format {
-                    GitGraphDateFormat::Default => "[month repr:short] [day], [year]",
-                    GitGraphDateFormat::Iso => "[year]-[month]-[day]",
-                };
-                let format = time::format_description::parse(description).ok();
-                format
-                    .and_then(|f| local_datetime.format(&f).ok())
-                    .unwrap_or_default()
-            })
+            .map(|timestamp| format_timestamp(timestamp, date_format))
             .unwrap_or_default();
 
         let remote = repository.update(cx, |repo, cx| {
