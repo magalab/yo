@@ -860,7 +860,7 @@
   "Whether to open tabs in preview mode when code navigation is used to open a multibuffer.": "使用代码导航打开多缓冲区时，是否以预览模式打开标签页。",
   "Whether to open tabs in preview mode when code navigation is used to open a single file.": "使用代码导航打开单个文件时，是否以预览模式打开标签页。",
   "Whether to open tabs in preview mode when opened from a multibuffer.": "从多缓冲区打开时，是否以预览模式打开标签页。",
-  "Whether to open tabs in preview mode when opened from the project panel with a single click.": "在项目面板中单击打开时，是否以预览模式打开标签页。",
+  "Whether to open tabs in preview mode when opened from the project panel with a single click or the Open action.": "在项目面板中单击或使用“打开”操作打开时，是否以预览模式打开标签页。",
   "Whether to open tabs in preview mode when selected from the file finder.": "从文件查找器中选择时，是否以预览模式打开标签页。",
   "Whether to perform linked edits of associated ranges, if the LS supports it. For example, when editing opening <html> tag, the contents of the closing </html> tag will be edited as well.": "如果语言服务器支持，是否对关联的范围进行联动编辑。例如，编辑开始标签 <html> 时，结束标签 </html> 的内容也会一起修改。",
   "Whether to play a sound when the BEL character (`\\a`, `0x07`) is printed": "输出 BEL 字符（`\\a`、`0x07`）时是否播放声音。",
