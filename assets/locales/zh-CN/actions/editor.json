@@ -587,6 +587,10 @@
     "name": "移到下一个单词结尾",
     "description": "将光标移到下一个单词的结尾。"
   },
+  "editor::MoveToNextWordStart": {
+    "name": "移到下一个单词开头",
+    "description": "将光标移到下一个单词的开头。"
+  },
   "editor::MoveToPreviousCommentParagraph": {
     "name": "移到上一个注释段落",
     "description": "将光标移到上一个注释段落的开头。"
@@ -1141,6 +1145,54 @@
   "editor::ViewBookmarks": {
     "name": "查看书签",
     "description": "打开一个视图，列出项目中的所有书签。"
+  },
+  "editor::VimAppendMode": {
+    "name": "追加模式",
+    "description": "在轻量 Vim 模式中，在光标后进入插入模式。"
+  },
+  "editor::VimDeleteSelection": {
+    "name": "删除选区",
+    "description": "删除当前字符选区并返回普通模式。"
+  },
+  "editor::VimInsertMode": {
+    "name": "插入模式",
+    "description": "在轻量 Vim 模式中进入插入模式。"
+  },
+  "editor::VimNormalMode": {
+    "name": "普通模式",
+    "description": "在轻量 Vim 模式中进入普通模式。"
+  },
+  "editor::VimOpenLineAbove": {
+    "name": "在上方打开新行",
+    "description": "在轻量 Vim 模式中于上方新建一行并进入插入模式。"
+  },
+  "editor::VimOpenLineBelow": {
+    "name": "在下方打开新行",
+    "description": "在轻量 Vim 模式中于下方新建一行并进入插入模式。"
+  },
+  "editor::VimPasteAfter": {
+    "name": "粘贴到光标后",
+    "description": "在轻量 Vim 模式中将内容粘贴到光标后。"
+  },
+  "editor::VimPasteBefore": {
+    "name": "粘贴到光标前",
+    "description": "在轻量 Vim 模式中将整行内容粘贴到当前行前。"
+  },
+  "editor::VimReplacePending": {
+    "name": "等待替换字符",
+    "description": "在轻量 Vim 模式中等待要替换的字符。"
+  },
+  "editor::VimVisualMode": {
+    "name": "可视模式",
+    "description": "在轻量 Vim 模式中进入字符选择模式。"
+  },
+  "editor::VimYankLine": {
+    "name": "复制当前行",
+    "description": "在轻量 Vim 模式中复制当前行。"
+  },
+  "editor::VimYankSelection": {
+    "name": "复制选区",
+    "description": "复制当前字符选区并返回普通模式。"
   },
   "editor::WrapSelectionsInTag": {
     "name": "用标签包裹选区",
