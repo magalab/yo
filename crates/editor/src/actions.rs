@@ -409,6 +409,30 @@ actions!(
 actions!(
     editor,
     [
+        /// Enters insert mode in the lightweight Vim mode.
+        VimInsertMode,
+        /// Enters insert mode after the cursor in the lightweight Vim mode.
+        VimAppendMode,
+        /// Enters normal mode in the lightweight Vim mode.
+        VimNormalMode,
+        /// Opens a line below and enters insert mode in the lightweight Vim mode.
+        VimOpenLineBelow,
+        /// Opens a line above and enters insert mode in the lightweight Vim mode.
+        VimOpenLineAbove,
+        /// Copies the current line in the lightweight Vim mode.
+        VimYankLine,
+        /// Enters character selection mode in lightweight Vim mode.
+        VimVisualMode,
+        /// Copies the current character selection and returns to normal mode.
+        VimYankSelection,
+        /// Deletes the current character selection and returns to normal mode.
+        VimDeleteSelection,
+        /// Waits for the replacement character in lightweight Vim mode.
+        VimReplacePending,
+        /// Pastes a linewise register before the current line.
+        VimPasteBefore,
+        /// Pastes after the cursor in the lightweight Vim mode.
+        VimPasteAfter,
         /// Applies all diff hunks in the editor.
         ApplyAllDiffHunks,
         /// Applies the diff hunk at the current position.
@@ -659,6 +683,8 @@ actions!(
         MoveToNextSubwordEnd,
         /// Moves cursor to the end of the next word.
         MoveToNextWordEnd,
+        /// Moves cursor to the start of the next word.
+        MoveToNextWordStart,
         /// Moves cursor to the start of the previous comment paragraph.
         MoveToPreviousCommentParagraph,
         /// Moves cursor to the start of the previous subword.

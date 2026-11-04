@@ -289,6 +289,9 @@
   "use_system_prompts": true,
   // Whether the cursor blinks in the editor.
   "cursor_blink": true,
+  // Enables the lightweight Vim editing mode in text editors.
+  // Default: false
+  "vim_mode": false,
   // Cursor shape for the default editor.
   //  1. A vertical bar
   //     "bar"

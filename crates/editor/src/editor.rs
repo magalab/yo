@@ -907,6 +907,8 @@ struct SettledScrollRange {
 ///
 /// See the [module level documentation](self) for more information.
 pub struct Editor {
+    lightweight_vim_mode: LightweightVimMode,
+    vim_mode_enabled: bool,
     focus_handle: FocusHandle,
     last_focused_descendant: Option<WeakFocusHandle>,
     /// The text buffer being edited
@@ -1137,6 +1139,15 @@ pub struct Editor {
     sticky_headers: Option<Vec<OutlineItem<Anchor>>>,
     pub(crate) colorize_brackets_task: Task<()>,
     buffers_awaiting_first_parse: HashSet<BufferId>,
+}
+
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+enum LightweightVimMode {
+    #[default]
+    Insert,
+    Normal,
+    Visual,
+    ReplaceChar,
 }
 
 #[derive(Debug, PartialEq)]
@@ -1695,6 +1706,11 @@ impl Render for GutterButtonTooltip {
 }
 
 impl Editor {
+    pub(crate) fn set_lightweight_vim_mode(&mut self, mode: LightweightVimMode) {
+        self.lightweight_vim_mode = mode;
+        self.input_enabled = matches!(mode, LightweightVimMode::Insert | LightweightVimMode::ReplaceChar);
+    }
+
     pub fn single_line(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let buffer = cx.new(|cx| Buffer::local("", cx));
         let buffer = cx.new(|cx| MultiBuffer::singleton(buffer, cx));
@@ -2235,7 +2251,13 @@ impl Editor {
         }
 
         let mut editor = Self {
+            vim_mode_enabled: EditorSettings::get_global(cx).vim_mode && mode.is_full(),
             focus_handle,
+            lightweight_vim_mode: if EditorSettings::get_global(cx).vim_mode && mode.is_full() {
+                LightweightVimMode::Normal
+            } else {
+                LightweightVimMode::Insert
+            },
             show_cursor_when_unfocused: false,
             last_focused_descendant: None,
             buffer: multi_buffer.clone(),
@@ -2335,7 +2357,8 @@ impl Editor {
             autoindent_mode: Some(AutoindentMode::EachLine),
             collapse_matches: false,
             workspace: None,
-            input_enabled: !is_minimap,
+            input_enabled: !is_minimap
+                && !(mode.is_full() && EditorSettings::get_global(cx).vim_mode),
             expects_character_input: !is_minimap,
             read_only: is_minimap,
             use_autoclose: true,
@@ -2636,6 +2659,17 @@ impl Editor {
         };
 
         key_context.set("mode", mode);
+        if self.vim_mode_enabled && self.mode.is_full() && self.pending_rename.is_none() {
+            match self.lightweight_vim_mode {
+                LightweightVimMode::Normal => key_context.add("VimControl"),
+                LightweightVimMode::Visual => {
+                    key_context.add("VimControl");
+                    key_context.add("VimVisual");
+                }
+                LightweightVimMode::ReplaceChar => key_context.add("VimReplaceWait"),
+                LightweightVimMode::Insert => key_context.add("VimInsert"),
+            }
+        }
         if self.pending_rename.is_some() {
             key_context.add("renaming");
         }
@@ -9891,6 +9925,16 @@ impl Editor {
     }
 
     fn settings_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let vim_mode_enabled = EditorSettings::get_global(cx).vim_mode && self.mode.is_full();
+        if vim_mode_enabled != self.vim_mode_enabled {
+            self.vim_mode_enabled = vim_mode_enabled;
+            self.set_lightweight_vim_mode(if vim_mode_enabled {
+                LightweightVimMode::Normal
+            } else {
+                LightweightVimMode::Insert
+            });
+        }
+
         let new_language_settings = self.fetch_applicable_language_settings(cx);
         let language_settings_changed = new_language_settings != self.applicable_language_settings;
         self.applicable_language_settings = new_language_settings;

@@ -1,4 +1,57 @@
 [
+  {
+    "context": "VimControl && !menu",
+    "bindings": {
+      "i": "editor::VimInsertMode",
+      "v": "editor::VimVisualMode",
+      "a": "editor::VimAppendMode",
+      "o": "editor::VimOpenLineBelow",
+      "shift-o": "editor::VimOpenLineAbove",
+      "w": "editor::MoveToNextWordStart",
+      "b": "editor::MoveToPreviousWordStart",
+      "e": "editor::MoveToNextWordEnd",
+      "shift-g": "editor::MoveToEnd",
+      "g g": "editor::MoveToBeginning",
+      "x": "editor::Delete",
+      "r": "editor::VimReplacePending",
+      "u": "editor::Undo",
+      "ctrl-r": "editor::Redo",
+      "d d": "editor::DeleteLine",
+      "y y": "editor::VimYankLine",
+      "p": "editor::VimPasteAfter",
+      "shift-p": "editor::VimPasteBefore",
+      "/": "buffer_search::Deploy",
+      "n": "search::SelectNextMatch",
+      "shift-n": "search::SelectPreviousMatch",
+      "h": "editor::MoveLeft",
+      "j": "editor::MoveDown",
+      "k": "editor::MoveUp",
+      "l": "editor::MoveRight",
+      "0": ["editor::MoveToBeginningOfLine", { "stop_at_soft_wraps": false }],
+      "^": ["editor::MoveToBeginningOfLine", { "stop_at_soft_wraps": false, "stop_at_indent": true }],
+      "$": ["editor::MoveToEndOfLine", { "stop_at_soft_wraps": false }]
+    }
+  },
+  {
+    "context": "VimVisual && VimControl && !menu",
+    "bindings": {
+      "h": "editor::SelectLeft",
+      "j": "editor::SelectDown",
+      "k": "editor::SelectUp",
+      "l": "editor::SelectRight",
+      "y": "editor::VimYankSelection",
+      "d": "editor::VimDeleteSelection",
+      "escape": "editor::VimNormalMode"
+    }
+  },
+  {
+    "context": "VimReplaceWait",
+    "bindings": { "escape": "editor::VimNormalMode" }
+  },
+  {
+    "context": "VimInsert",
+    "bindings": { "escape": "editor::VimNormalMode" }
+  },
   // Standard macOS bindings
   {
     "use_key_equivalents": true,

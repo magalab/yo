@@ -50,6 +50,8 @@ Windows 用户请下载[安装程序](https://github.com/dstrml/wu/releases/late
 
 请看[文档](https://wu.dstrml.org/zh/)。
 
+轻量 Vim 模式的操作列表和启用方式请看[轻量 Vim 模式说明](docs/lightweight-vim-mode.md)。
+
 ## 构建
 
 Wu 的构建方式和 Zed 一样。请看 [Zed 开发文档](https://zed.dev/docs/development)。

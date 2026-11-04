@@ -231,6 +231,7 @@ impl VsCodeSettings {
 
     fn editor_settings_content(&self) -> EditorSettingsContent {
         EditorSettingsContent {
+            vim_mode: None,
             auto_signature_help: self.read_bool("editor.parameterHints.enabled"),
             language_detection: self.read_bool("workbench.editor.languageDetection"),
             autoscroll_on_clicks: None,

@@ -1,6 +1,29 @@
 use super::*;
 
 impl Editor {
+    pub fn move_to_next_word_start(
+        &mut self,
+        _: &MoveToNextWordStart,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.change_selections(Default::default(), window, cx, |selections| {
+            selections.move_cursors_with(&mut |map, head, _| {
+                let word_end = movement::next_word_end(map, head, false);
+                let word_start = movement::previous_word_start(map, word_end, false);
+                let next_word_end = if word_start <= head {
+                    movement::next_word_end(map, movement::right(map, word_end), false)
+                } else {
+                    word_end
+                };
+                (
+                    movement::previous_word_start(map, next_word_end, false),
+                    SelectionGoal::None,
+                )
+            });
+        });
+    }
+
     pub fn move_left(&mut self, _: &MoveLeft, window: &mut Window, cx: &mut Context<Self>) {
         self.change_selections(Default::default(), window, cx, |s| {
             s.move_with(&mut |map, selection| {

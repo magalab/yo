@@ -1129,7 +1129,7 @@ fn appearance_page() -> SettingsPage {
         ]
     }
 
-    fn cursor_section() -> [SettingsPageItem; 6] {
+    fn cursor_section() -> [SettingsPageItem; 7] {
         [
             SettingsPageItem::SectionHeader(n!("Cursor")),
             SettingsPageItem::SettingItem(SettingItem {
@@ -1140,6 +1140,19 @@ fn appearance_page() -> SettingsPage {
                     pick: |settings_content| settings_content.editor.multi_cursor_modifier.as_ref(),
                     write: |settings_content, value, _| {
                         settings_content.editor.multi_cursor_modifier = value;
+                    },
+                }),
+                metadata: None,
+                files: USER,
+            }),
+            SettingsPageItem::SettingItem(SettingItem {
+                title: n!("Vim Mode"),
+                description: n!("Enables the lightweight Vim editing mode in text editors."),
+                field: Box::new(SettingField {
+                    json_path: Some("vim_mode"),
+                    pick: |settings_content| settings_content.editor.vim_mode.as_ref(),
+                    write: |settings_content, value, _| {
+                        settings_content.editor.vim_mode = value;
                     },
                 }),
                 metadata: None,

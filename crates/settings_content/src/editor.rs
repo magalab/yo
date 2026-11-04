@@ -12,6 +12,10 @@ use crate::{
 #[with_fallible_options]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema, MergeFrom)]
 pub struct EditorSettingsContent {
+    /// Enables the lightweight Vim editing mode.
+    ///
+    /// Default: false
+    pub vim_mode: Option<bool>,
     /// Whether the cursor blinks in the editor.
     ///
     /// Default: true
