@@ -1,0 +1,46 @@
+name: Build macOS
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: '0'
+
+jobs:
+  bundle_macos:
+    runs-on: macos-15
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Select Xcode
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_26.3.app/Contents/Developer
+          xcodebuild -version
+      - name: Install Metal Toolchain
+        run: xcodebuild -downloadComponent metalToolchain
+      - name: Install Rust toolchain
+        run: rustup show
+      - name: Install lld
+        run: brew install lld
+      - name: Use the stable release channel
+        run: echo stable > crates/wu/RELEASE_CHANNEL
+      - name: Bundle
+        run: script/bundle-mac aarch64-apple-darwin
+      - name: Check Chinese translations
+        run: script/check-translations --binary target/aarch64-apple-darwin/release/wu
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-aarch64-develop
+          path: |
+            target/aarch64-apple-darwin/release/Wu-aarch64.dmg
+            target/wu-remote-server-macos-aarch64.gz
+          if-no-files-found: error
