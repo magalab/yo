@@ -353,12 +353,12 @@ impl Render for TitleBar {
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .child(
                     IconButton::new("title-bar-settings", IconName::Settings)
-                        .size(ButtonSize::Small)
+                        .size(ButtonSize::Default)
                         .icon_size(IconSize::Small)
                         .tooltip(Tooltip::text(t!("Settings")))
                         .aria_label(t!("Settings"))
                         .on_click(|_, window, cx| {
-                            window.dispatch_action(app_actions::OpenSettings.boxed_clone(), cx);
+                            window.dispatch_action(Box::new(app_actions::OpenSettings), cx);
                         }),
                 )
                 .child(self.update_version.clone())
