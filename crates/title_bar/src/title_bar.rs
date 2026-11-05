@@ -34,8 +34,8 @@ use std::path::Path;
 use theme::ActiveTheme;
 use title_bar_settings::TitleBarSettings;
 use ui::{
-    ButtonLike, IconWithIndicator, Indicator, PopoverMenu, TintColor, Tooltip, prelude::*,
-    utils::platform_title_bar_height,
+    ButtonLike, ContextMenu, IconWithIndicator, Indicator, PopoverMenu, TintColor, Tooltip,
+    prelude::*, utils::platform_title_bar_height,
 };
 use update_version::UpdateVersion;
 use util::ResultExt;
@@ -352,14 +352,37 @@ impl Render for TitleBar {
                 .gap_1()
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .child(
-                    IconButton::new("title-bar-settings", IconName::Settings)
-                        .size(ButtonSize::Default)
-                        .icon_size(IconSize::Small)
-                        .tooltip(Tooltip::text(t!("Settings")))
-                        .aria_label(t!("Settings"))
-                        .on_click(|_, window, cx| {
-                            window.dispatch_action(Box::new(app_actions::OpenSettings), cx);
-                        }),
+                    PopoverMenu::new("title-bar-settings-menu")
+                        .trigger_with_tooltip(
+                            IconButton::new("title-bar-settings", IconName::Settings)
+                                .size(ButtonSize::Default)
+                                .icon_size(IconSize::Small)
+                                .tab_index(0isize)
+                                .aria_label(t!("Manage")),
+                            Tooltip::text(t!("Manage")),
+                        )
+                        .menu(|window, cx| {
+                            Some(ContextMenu::build(window, cx, |menu, _, _| {
+                                menu.action(t!("Settings"), Box::new(app_actions::OpenSettings))
+                                    .action(t!("Keymap"), Box::new(app_actions::OpenKeymap))
+                                    .action(
+                                        t!("Themes…"),
+                                        Box::new(app_actions::theme_selector::Toggle::default()),
+                                    )
+                                    .action(
+                                        t!("Icon Themes…"),
+                                        Box::new(
+                                            app_actions::icon_theme_selector::Toggle::default(),
+                                        ),
+                                    )
+                                    .action(
+                                        t!("Extensions"),
+                                        Box::new(app_actions::Extensions::default()),
+                                    )
+                            }))
+                        })
+                        .anchor(gpui::Anchor::TopRight)
+                        .attach(gpui::Anchor::BottomRight),
                 )
                 .child(self.update_version.clone())
                 .into_any_element(),

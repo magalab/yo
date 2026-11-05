@@ -1781,14 +1781,8 @@ impl Render for DebugPanel {
                 } else {
                     let docked_to_bottom = self.position(window, cx) == DockPosition::Bottom;
 
-                    let welcome_experience = v_flex()
-                        .when_else(
-                            docked_to_bottom,
-                            |this| this.w_2_3().h_full().pr_8(),
-                            |this| this.w_full().h_1_3(),
-                        )
-                        .items_center()
-                        .justify_center()
+                    let welcome_actions = v_flex()
+                        .items_start()
                         .gap_2()
                         .child(
                             Button::new("spawn-new-session-empty-state", t!("New Session"))
@@ -1847,6 +1841,16 @@ impl Render for DebugPanel {
                                 );
                             }),
                         );
+
+                    let welcome_experience = v_flex()
+                        .when_else(
+                            docked_to_bottom,
+                            |this| this.w_2_3().h_full().pr_8(),
+                            |this| this.w_full().h_1_3(),
+                        )
+                        .items_center()
+                        .justify_center()
+                        .child(welcome_actions);
 
                     let has_breakpoints = self
                         .project

@@ -4,12 +4,11 @@ use gpui::{
     Action, Anchor, App, Context, Entity, FocusHandle, Focusable as _, IntoElement, ParentElement,
     Pixels, Render, SharedString, Styled, Subscription, Task, WeakEntity, Window, px,
 };
-use i18n::t;
 use settings::{ActivityBarPosition, Settings as _, SettingsStore};
 use std::sync::Arc;
 use ui::{
-    ButtonSize, ContextMenu, CountBadge, Icon, IconButton, IconName, IconSize, PopoverMenu,
-    Tooltip, prelude::*, right_click_menu,
+    ButtonSize, CountBadge, Icon, IconButton, IconName, IconSize, Tooltip, prelude::*,
+    right_click_menu,
 };
 use util::ResultExt as _;
 
@@ -383,44 +382,6 @@ impl Render for ActivityBar {
             buttons.push(self.render_entry(entry, window, cx));
         }
         bar.children(buttons)
-            .child(div().flex_1())
-            .child(self.render_settings_menu(window, cx))
-    }
-}
-
-impl ActivityBar {
-    fn render_settings_menu(&self, window: &Window, cx: &App) -> impl IntoElement {
-        PopoverMenu::new("activity-bar-settings-menu")
-            .trigger_with_tooltip(
-                IconButton::new("activity-bar-settings", IconName::ActivitySettings)
-                    .size(ButtonSize::Large)
-                    .height(button_height(window, cx).into())
-                    .icon_size(IconSize::Custom(icon_rems(window, cx)))
-                    .tab_index(0isize)
-                    .aria_label(t!("Manage")),
-                Tooltip::text(t!("Manage")),
-            )
-            .menu(|window, cx| {
-                ContextMenu::build(window, cx, |menu, _, _| {
-                    menu.action(t!("Settings"), app_actions::OpenSettings.boxed_clone())
-                        .action(t!("Keymap"), Box::new(app_actions::OpenKeymap))
-                        .action(
-                            t!("Themes…"),
-                            app_actions::theme_selector::Toggle::default().boxed_clone(),
-                        )
-                        .action(
-                            t!("Icon Themes…"),
-                            app_actions::icon_theme_selector::Toggle::default().boxed_clone(),
-                        )
-                        .action(
-                            t!("Extensions"),
-                            app_actions::Extensions::default().boxed_clone(),
-                        )
-                })
-                .into()
-            })
-            .anchor(menu_anchors(false, cx).0)
-            .attach(menu_anchors(false, cx).1)
     }
 }
 
