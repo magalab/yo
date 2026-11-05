@@ -1,16 +1,16 @@
-import type { ChatStep, MockChat } from '../components/wuWindowData';
+import type { ChatStep, MockChat } from '../components/editorWindowData';
 import { INSTALL_COMMAND, INSTALL_GUIDE_URL, ISSUES_URL, RAYCAST_URL, ZED_DOCS_URL } from '../consts';
 import type { Messages } from './en';
 
 export const zhCN: Messages = {
   meta: {
     home: {
-      title: 'Wu：快速的原生代码编辑器和智能体工作区',
-      description: 'Wu 是一款快速的原生代码编辑器，用 Rust 编写。开箱即用，内置编程智能体。无需账号，没有遥测。'
+      title: 'Yo：快速的原生代码编辑器和智能体工作区',
+      description: 'Yo 是一款快速的原生代码编辑器，用 Rust 编写。开箱即用，内置编程智能体。无需账号，没有遥测。'
     },
-    docs: { title: 'Wu 文档', description: 'Wu 和 Zed 有哪些不同：去掉了什么，改了什么，文件放在哪里。' },
-    support: { title: '支持 Wu', description: 'Wu 免费开源。在 Open Collective 上捐助，帮它继续走下去。' },
-    notFound: { title: '找不到页面 · Wu' }
+    docs: { title: 'Yo 文档', description: 'Yo 和 Zed 有哪些不同：去掉了什么，改了什么，文件放在哪里。' },
+    support: { title: '支持 Yo', description: 'Yo 免费开源。在 Open Collective 上捐助，帮它继续走下去。' },
+    notFound: { title: '找不到页面 · Yo' }
   },
   languageName: '中文',
   header: {
@@ -20,15 +20,15 @@ export const zhCN: Messages = {
   },
   footer: {
     navLabel: '页脚',
-    product: { title: 'Wu', download: '下载', docs: '文档', releases: '版本发布' },
+    product: { title: 'Yo', download: '下载', docs: '文档', releases: '版本发布' },
     resources: {
       title: '资源',
       installGuide: '安装指南',
       memoryBenchmark: '内存测试',
       raycast: 'Raycast 扩展'
     },
-    source: { title: '源代码', github: 'GitHub', reportIssue: '报告问题', support: '支持 Wu' },
-    license: 'Wu 采用 GPL-3.0-or-later 许可证。'
+    source: { title: '源代码', github: 'GitHub', reportIssue: '报告问题', support: '支持 Yo' },
+    license: 'Yo 采用 GPL-3.0-or-later 许可证。'
   },
   installCommand: { copied: '已复制', copy: '复制', copyLabel: '复制安装命令' },
   downloads: {
@@ -43,11 +43,11 @@ export const zhCN: Messages = {
     tagline: '用 Rust 编写，开箱即用：内置编程智能体，用起来顺手，第一天就有你需要的一切。',
     installManually: (href: string) => `或者[手动安装](${href})`,
     downloadFor: (platform: string) => `下载 ${platform} 版`,
-    downloadWu: '下载 Wu',
+    downloadYo: '下载 Yo',
     allPlatforms: '所有平台',
     memory: {
       title: '占用内存少',
-      body: '在我们做过的每一项测试里，Wu 用的内存都比 Zed 和 VS Code 少。',
+      body: '在我们做过的每一项测试里，Yo 用的内存都比 Zed 和 VS Code 少。',
       link: '查看测试结果'
     },
     agents: {
@@ -57,15 +57,15 @@ export const zhCN: Messages = {
     },
     openSource: {
       title: '开源，基于 Zed',
-      body: 'Wu 是 Zed 的分支。它保留了 Zed 的编辑器核心、GPU 渲染和语言工具，所有 Zed 扩展都能在 Wu 里使用。',
+      body: 'Yo 是 Zed 的分支。它保留了 Zed 的编辑器核心、GPU 渲染和语言工具，所有 Zed 扩展都能在 Yo 里使用。',
       source: '查看源代码',
       docs: '阅读文档'
     },
     ready: {
-      iconAlt: 'Wu 应用图标',
+      iconAlt: 'Yo 应用图标',
       title: '随时可以开始',
-      bodyScript: 'Wu 免费，一分钟就能装好。在终端里运行这条命令。',
-      bodyPick: 'Wu 免费，一分钟就能装好。选择你的平台。',
+      bodyScript: 'Yo 免费，一分钟就能装好。在终端里运行这条命令。',
+      bodyPick: 'Yo 免费，一分钟就能装好。选择你的平台。',
       orInstallManually: '或者手动安装',
       alsoRun: '在 macOS 或 Linux 上，也可以运行',
       firstTime: `第一次在 macOS 或 Linux 上安装？请看[安装指南](${INSTALL_GUIDE_URL})。`
@@ -77,38 +77,38 @@ export const zhCN: Messages = {
     scenarios: { idle: '空闲时', search: '搜索仓库时' }
   },
   faq: {
-    title: '关于 Wu 的常见问题',
+    title: '关于 Yo 的常见问题',
     questions: [
       {
-        question: 'Wu 免费吗？',
-        answer: '免费。Wu 是开源软件，采用 GPL-3.0-or-later 许可证，和 Zed 一样。没有付费版本。'
+        question: 'Yo 免费吗？',
+        answer: '免费。Yo 是开源软件，采用 GPL-3.0-or-later 许可证，和 Zed 一样。没有付费版本。'
       },
       {
-        question: 'Wu 会收集数据吗？',
-        answer: '不会。Wu 没有遥测，没有崩溃报告，也不需要账号。它从不把你的使用数据发送到任何地方。'
+        question: 'Yo 会收集数据吗？',
+        answer: '不会。Yo 没有遥测，没有崩溃报告，也不需要账号。它从不把你的使用数据发送到任何地方。'
       },
       {
-        question: 'Wu 支持 AI 编程智能体吗？',
+        question: 'Yo 支持 AI 编程智能体吗？',
         answer:
-          '支持。Wu 内置了对 Claude Code、Codex 和 OpenCode 等编程智能体的支持。不过，Wu 不支持 Zed 的 AI 功能，比如行内助手和编辑预测。'
+          '支持。Yo 内置了对 Claude Code、Codex 和 OpenCode 等编程智能体的支持。不过，Yo 不支持 Zed 的 AI 功能，比如行内助手和编辑预测。'
       },
       {
-        question: 'Zed 扩展能在 Wu 里用吗？',
-        answer: '能。Wu 从 Zed 扩展商店安装扩展，所有 Zed 扩展都能用。'
+        question: 'Zed 扩展能在 Yo 里用吗？',
+        answer: '能。Yo 从 Zed 扩展商店安装扩展，所有 Zed 扩展都能用。'
       },
       {
         question: '可以同时保留 Zed 吗？',
         answer:
-          '可以。Wu 和 Zed 的设置是分开的，分别在 `~/.config/wu` 和 `~/.config/zed`。如果想让两边设置一样，把你的 `settings.json` 和 `keymap.json` 复制过去就行。'
+          '可以。Yo 和 Zed 的设置是分开的，分别在 `~/.config/yo` 和 `~/.config/zed`。如果想让两边设置一样，把你的 `settings.json` 和 `keymap.json` 复制过去就行。'
       },
       {
-        question: '为什么 macOS 提示无法打开 Wu？',
-        answer: `Wu 还没有用 Apple 开发者证书签名，所以 macOS 第一次会拦住它。[安装指南](${INSTALL_GUIDE_URL})里有一次性的解决办法。`
+        question: '为什么 macOS 提示无法打开 Yo？',
+        answer: `Yo 还没有用 Apple 开发者证书签名，所以 macOS 第一次会拦住它。[安装指南](${INSTALL_GUIDE_URL})里有一次性的解决办法。`
       },
       {
-        question: 'Wu 和 Zed 有什么不同？',
+        question: 'Yo 和 Zed 有什么不同？',
         answer:
-          'Wu 去掉了 Zed 的 AI 服务、协作和遥测功能。它有自己的智能体对话，基于 Claude Code、Codex 和 OpenCode 的命令行工具，也有自己的外观，还在其他好几个地方比 Zed 更好用。详情请看[文档](/zh/docs/)。'
+          'Yo 去掉了 Zed 的 AI 服务、协作和遥测功能。它有自己的智能体对话，基于 Claude Code、Codex 和 OpenCode 的命令行工具，也有自己的外观，还在其他好几个地方比 Zed 更好用。详情请看[文档](/zh/docs/)。'
       },
       {
         question: '在哪里报告问题？',
@@ -118,10 +118,10 @@ export const zhCN: Messages = {
   },
   docs: {
     title: '文档',
-    intro: `这里介绍的是 Wu 特有的内容。Wu 和 Zed 共用编辑器核心，所以设置、快捷键、语言、扩展、任务、调试和远程开发这些内容，[Zed 文档](${ZED_DOCS_URL})同样适用于 Wu。`,
+    intro: `这里介绍的是 Yo 特有的内容。Yo 和 Zed 共用编辑器核心，所以设置、快捷键、语言、扩展、任务、调试和远程开发这些内容，[Zed 文档](${ZED_DOCS_URL})同样适用于 Yo。`,
     gettingStarted: {
       title: '开始使用',
-      body: `在 macOS 和 Linux 上，在终端里运行 \`${INSTALL_COMMAND}\`。也可以下载对应平台的 Wu，然后按照[安装指南](${INSTALL_GUIDE_URL})操作。`,
+      body: `在 macOS 和 Linux 上，在终端里运行 \`${INSTALL_COMMAND}\`。也可以下载对应平台的 Yo，然后按照[安装指南](${INSTALL_GUIDE_URL})操作。`,
       paths: {
         commandLine: '命令行',
         settingsUnix: '设置（macOS、Linux）',
@@ -133,7 +133,7 @@ export const zhCN: Messages = {
     agentChat: {
       title: '智能体对话',
       intro:
-        '在 Wu 里和 Claude Code、Codex 或 OpenCode 对话。它用的是你已经安装并登录的命令行工具，所以不需要 API 密钥，也不需要 Wu 账号。',
+        '在 Yo 里和 Claude Code、Codex 或 OpenCode 对话。它用的是你已经安装并登录的命令行工具，所以不需要 API 密钥，也不需要 Yo 账号。',
       items: [
         '**开始对话：**点击活动栏里的智能体图标。用“继续已保存的对话”可以接着在终端里开始的对话继续。',
         '**输入** `/` 使用命令，`@` 提及文件，`$` 使用技能。粘贴或拖入图片即可附加。',
@@ -154,39 +154,39 @@ export const zhCN: Messages = {
     },
     extensions: {
       title: '扩展',
-      body: 'Wu 从 Zed 扩展商店安装扩展，不用做任何修改就能在 Wu 里使用。'
+      body: 'Yo 从 Zed 扩展商店安装扩展，不用做任何修改就能在 Yo 里使用。'
     },
     privacy: {
       title: '隐私',
-      body: 'Wu 没有账号，没有遥测，也没有崩溃报告。它从不把你的使用数据发送到任何地方。智能体对话只和你所用工具背后的服务商通信。'
+      body: 'Yo 没有账号，没有遥测，也没有崩溃报告。它从不把你的使用数据发送到任何地方。智能体对话只和你所用工具背后的服务商通信。'
     },
     notIncluded: {
       title: '不包含的功能',
       items: ['协作：频道、通话、屏幕共享和共享项目。', 'Vim 和 Helix 模式。', '开发容器。', 'REPL 和日记。'],
-      note: '如果 Zed 文档里的某个设置或快捷键属于这些功能，它在 Wu 里不起作用。'
+      note: '如果 Zed 文档里的某个设置或快捷键属于这些功能，它在 Yo 里不起作用。'
     },
     comingFromZed: {
       title: '从 Zed 迁移',
-      body: 'Wu 和 Zed 可以同时安装。它们的设置是分开的，如果想让两边设置一样，把 `settings.json` 和 `keymap.json` 从 `~/.config/zed` 复制到 `~/.config/wu` 就行。'
+      body: 'Yo 和 Zed 可以同时安装。它们的设置是分开的，如果想让两边设置一样，把 `settings.json` 和 `keymap.json` 从 `~/.config/zed` 复制到 `~/.config/yo` 就行。'
     },
     raycast: {
       title: 'Raycast',
-      body: `在 macOS 上，安装 [Raycast 的 Wu 扩展](${RAYCAST_URL})，就能在 Raycast 里打开最近的项目、新窗口和设置。`
+      body: `在 macOS 上，安装 [Raycast 的 Yo 扩展](${RAYCAST_URL})，就能在 Raycast 里打开最近的项目、新窗口和设置。`
     },
     license: {
       title: '许可证',
-      body: 'Wu 采用 GPL-3.0-or-later 许可证发布，标注的部分采用 Apache-2.0。'
+      body: 'Yo 采用 GPL-3.0-or-later 许可证发布，标注的部分采用 Apache-2.0。'
     }
   },
   support: {
-    title: '支持 Wu',
-    intro: 'Wu 免费开源，无需账号，没有遥测。它由一位开发者独立开发和维护。',
-    why: '如果你每天都在用 Wu，捐助可以帮忙支付修复问题、添加功能，以及让 Wu 跟上 Zed 更新所花的时间。',
+    title: '支持 Yo',
+    intro: 'Yo 免费开源，无需账号，没有遥测。它由一位开发者独立开发和维护。',
+    why: '如果你每天都在用 Yo，捐助可以帮忙支付修复问题、添加功能，以及让 Yo 跟上 Zed 更新所花的时间。',
     donate: '在 Open Collective 上捐助',
     donateNote: '付款由 Open Collective 处理，每一笔捐助和支出都会公开。',
     otherWays: {
       title: '其他帮忙的方式',
-      body: '在 GitHub 上给 Wu 点个星，报告你遇到的问题，或者推荐给可能喜欢它的朋友。',
+      body: '在 GitHub 上给 Yo 点个星，报告你遇到的问题，或者推荐给可能喜欢它的朋友。',
       star: '在 GitHub 上点星',
       reportIssue: '报告问题'
     }
@@ -194,9 +194,9 @@ export const zhCN: Messages = {
   notFound: {
     title: '找不到页面',
     body: '这个页面不存在，或者已经移走了。',
-    back: '返回 Wu'
+    back: '返回 Yo'
   },
-  wuWindow: {
+  yoWindow: {
     panels: {
       explorer: '项目面板',
       search: '搜索',
@@ -404,7 +404,7 @@ export const zhCN: Messages = {
       }
     ] as MockChat[],
     previewReply:
-      '这只是一个预览，后面没有真正的智能体。在 Wu 里，Claude Code 或 Codex 会直接在这里回答，用的是你已经登录的命令行工具。'
+      '这只是一个预览，后面没有真正的智能体。在 Yo 里，Claude Code 或 Codex 会直接在这里回答，用的是你已经登录的命令行工具。'
   },
   agentWindow: {
     message: '网络错误导致上传失败时自动重试',

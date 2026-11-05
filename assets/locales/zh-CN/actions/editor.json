@@ -1197,5 +1197,33 @@
   "editor::WrapSelectionsInTag": {
     "name": "用标签包裹选区",
     "description": "用当前语言指定的标签包裹选区。"
+  },
+  "editor::VimInsertLineStart": {
+    "name": "行首插入",
+    "description": "在当前行第一个非空白字符处进入插入模式。"
+  },
+  "editor::VimAppendLineEnd": {
+    "name": "行尾追加",
+    "description": "在当前行末尾进入插入模式。"
+  },
+  "editor::VimDeleteToLineEnd": {
+    "name": "删除至行尾",
+    "description": "删除光标到当前行末尾的内容。"
+  },
+  "editor::VimChangeToLineEnd": {
+    "name": "修改至行尾",
+    "description": "删除光标到当前行末尾的内容并进入插入模式。"
+  },
+  "editor::VimSubstituteCharacter": {
+    "name": "替换字符",
+    "description": "删除光标下的字符并进入插入模式。"
+  },
+  "editor::VimChangeLine": {
+    "name": "修改整行",
+    "description": "替换当前行内容并进入插入模式。"
+  },
+  "editor::VimVisualLineMode": {
+    "name": "行可视模式",
+    "description": "在轻量 Vim 模式中进入按行选择模式。"
   }
 }

@@ -15,11 +15,11 @@ export interface Download {
 const latest = (file: string) => `${RELEASES_URL}/latest/download/${file}`;
 
 export const downloads: Download[] = [
-  { id: 'macArm', href: latest('Wu-aarch64.dmg'), platform: 'mac', architecture: 'arm' },
-  { id: 'macIntel', href: latest('Wu-x86_64.dmg'), platform: 'mac', architecture: 'x86' },
-  { id: 'windows', href: latest('Wu-x86_64.exe'), platform: 'windows' },
-  { id: 'linuxX86', href: latest('wu-linux-x86_64.tar.gz'), platform: 'linux' },
-  { id: 'linuxArm', href: latest('wu-linux-aarch64.tar.gz') }
+  { id: 'macArm', href: latest('Yo-aarch64.dmg'), platform: 'mac', architecture: 'arm' },
+  { id: 'macIntel', href: latest('Yo-x86_64.dmg'), platform: 'mac', architecture: 'x86' },
+  { id: 'windows', href: latest('Yo-x86_64.exe'), platform: 'windows' },
+  { id: 'linuxX86', href: latest('yo-linux-x86_64.tar.gz'), platform: 'linux' },
+  { id: 'linuxArm', href: latest('yo-linux-aarch64.tar.gz') }
 ];
 
 export const platformNames: Record<Platform, string> = {

@@ -3,6 +3,7 @@ import tailwind from 'bun-plugin-tailwind';
 import path from 'node:path';
 import { renderPage } from './render';
 import { routes } from './routes';
+import { SITE_URL } from './consts';
 
 const publicDir = path.join(import.meta.dir, '..', 'public');
 const installScript = path.join(import.meta.dir, '..', '..', 'script', 'install.sh');
@@ -16,6 +17,7 @@ async function buildClient() {
     external: ['/fonts/*'],
     splitting: true,
     target: 'browser',
+    define: { 'process.env.SITE_URL': JSON.stringify(SITE_URL) },
     naming: { entry: '[name].[ext]', chunk: 'chunk-[hash].[ext]', asset: '[name]-[hash].[ext]' }
   });
   clientAssets = new Map(result.outputs.map((output) => ['/' + path.basename(output.path), output]));
@@ -51,4 +53,4 @@ const server = serve({
   }
 });
 
-console.log(`Wu website running at ${server.url}`);
+console.log(`Yo website running at ${server.url}`);

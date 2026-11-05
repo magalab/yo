@@ -72,7 +72,7 @@ async fn main() -> Result<()> {
     log::info!("compiling extension");
 
     let user_agent = format!(
-        "Wu Extension CLI/{} ({}; {})",
+        "Yo Extension CLI/{} ({}; {})",
         env!("CARGO_PKG_VERSION"),
         std::env::consts::OS,
         std::env::consts::ARCH

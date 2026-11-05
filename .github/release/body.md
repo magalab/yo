@@ -1,1 +1,1 @@
-See [Readme](https://github.com/dstrml/wu#download) for installation instructions.
+See [Readme](https://github.com/magalab/yo#download) for installation instructions.

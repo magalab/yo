@@ -1,4 +1,4 @@
-import type { ChatStep, MockChat } from '../components/wuWindowData';
+import type { ChatStep, MockChat } from '../components/editorWindowData';
 import {
   INSTALL_COMMAND,
   INSTALL_GUIDE_URL,
@@ -12,10 +12,10 @@ const plural = (amount: number, one: string, many: string) => `${amount} ${amoun
 
 export const en = {
   meta: {
-    home: { title: 'Wu: the fast, native code editor and agent workspace', description: SITE_DESCRIPTION },
-    docs: { title: 'Wu Docs', description: 'How Wu differs from Zed: what is removed, what is different, and where things live.' },
-    support: { title: 'Support Wu', description: 'Wu is free and open source. Donate on Open Collective to help keep it going.' },
-    notFound: { title: 'Page not found · Wu' }
+    home: { title: 'Yo: the fast, native code editor and agent workspace', description: SITE_DESCRIPTION },
+    docs: { title: 'Yo Docs', description: 'How Yo differs from Zed: what is removed, what is different, and where things live.' },
+    support: { title: 'Support Yo', description: 'Yo is free and open source. Donate on Open Collective to help keep it going.' },
+    notFound: { title: 'Page not found · Yo' }
   },
   languageName: 'English',
   header: {
@@ -25,15 +25,15 @@ export const en = {
   },
   footer: {
     navLabel: 'Footer',
-    product: { title: 'Wu', download: 'Download', docs: 'Docs', releases: 'Releases' },
+    product: { title: 'Yo', download: 'Download', docs: 'Docs', releases: 'Releases' },
     resources: {
       title: 'Resources',
       installGuide: 'Install guide',
       memoryBenchmark: 'Memory benchmark',
       raycast: 'Raycast extension'
     },
-    source: { title: 'Source', github: 'GitHub', reportIssue: 'Report an issue', support: 'Support Wu' },
-    license: 'Wu is licensed under GPL-3.0-or-later.'
+    source: { title: 'Source', github: 'GitHub', reportIssue: 'Report an issue', support: 'Support Yo' },
+    license: 'Yo is licensed under GPL-3.0-or-later.'
   },
   installCommand: { copied: 'Copied', copy: 'Copy', copyLabel: 'Copy install command' },
   downloads: {
@@ -48,11 +48,11 @@ export const en = {
     tagline: 'Written in Rust. Batteries included: coding agents, a delightful UX and everything you need from day one.',
     installManually: (href: string) => `Or [install manually](${href})`,
     downloadFor: (platform: string) => `Download for ${platform}`,
-    downloadWu: 'Download Wu',
+    downloadYo: 'Download Yo',
     allPlatforms: 'All platforms',
     memory: {
       title: 'Light on memory',
-      body: 'Wu used less memory than Zed and VS Code in every test we ran.',
+      body: 'Yo used less memory than Zed and VS Code in every test we ran.',
       link: 'See benchmarks'
     },
     agents: {
@@ -62,15 +62,15 @@ export const en = {
     },
     openSource: {
       title: 'Open source, built on Zed',
-      body: "Wu is a fork of Zed. It keeps Zed's editor core, GPU rendering and language tooling, and every Zed extension works in Wu.",
+      body: "Yo is a fork of Zed. It keeps Zed's editor core, GPU rendering and language tooling, and every Zed extension works in Yo.",
       source: 'Check out the source',
       docs: 'Read the docs'
     },
     ready: {
-      iconAlt: 'Wu app icon',
+      iconAlt: 'Yo app icon',
       title: 'Ready when you are',
-      bodyScript: 'Wu is free and takes a minute to install. Run this in your terminal.',
-      bodyPick: 'Wu is free and takes a minute to install. Pick your platform.',
+      bodyScript: 'Yo is free and takes a minute to install. Run this in your terminal.',
+      bodyPick: 'Yo is free and takes a minute to install. Pick your platform.',
       orInstallManually: 'Or install manually',
       alsoRun: 'On macOS or Linux, you can also run',
       firstTime: `First time on macOS or Linux? See the [install guide](${INSTALL_GUIDE_URL}).`
@@ -82,38 +82,38 @@ export const en = {
     scenarios: { idle: 'Sitting idle', search: 'Searching a repository' }
   },
   faq: {
-    title: 'Questions people ask about Wu',
+    title: 'Questions people ask about Yo',
     questions: [
       {
-        question: 'Is Wu free?',
-        answer: "Yes. Wu is free and open source under GPL-3.0-or-later, the same license as Zed. There's no paid tier."
+        question: 'Is Yo free?',
+        answer: "Yes. Yo is free and open source under GPL-3.0-or-later, the same license as Zed. There's no paid tier."
       },
       {
-        question: 'Does Wu collect any data?',
-        answer: 'No. Wu has no telemetry, no crash reporting and no account. It never sends your usage data anywhere.'
+        question: 'Does Yo collect any data?',
+        answer: 'No. Yo has no telemetry, no crash reporting and no account. It never sends your usage data anywhere.'
       },
       {
-        question: 'Does Wu support AI coding agents?',
+        question: 'Does Yo support AI coding agents?',
         answer:
-          "Yes. Wu has built-in support for coding agents like Claude Code, Codex, and OpenCode. However, Wu doesn't support Zed's AI features, like the inline assistant and edit predictions."
+          "Yes. Yo has built-in support for coding agents like Claude Code, Codex, and OpenCode. However, Yo doesn't support Zed's AI features, like the inline assistant and edit predictions."
       },
       {
-        question: 'Do Zed extensions work in Wu?',
-        answer: 'Yes. Wu installs extensions from the Zed extension registry, and every Zed extension works.'
+        question: 'Do Zed extensions work in Yo?',
+        answer: 'Yes. Yo installs extensions from the Zed extension registry, and every Zed extension works.'
       },
       {
         question: 'Can I keep Zed installed too?',
         answer:
-          'Yes. Wu and Zed keep separate settings, in `~/.config/wu` and `~/.config/zed`. Copy your `settings.json` and `keymap.json` over if you want the same setup in both.'
+          'Yes. Yo and Zed keep separate settings, in `~/.config/yo` and `~/.config/zed`. Copy your `settings.json` and `keymap.json` over if you want the same setup in both.'
       },
       {
-        question: "Why does macOS say Wu can't be opened?",
-        answer: `Wu isn't signed with an Apple Developer certificate yet, so macOS blocks it the first time. The [install guide](${INSTALL_GUIDE_URL}) shows the one-time fix.`
+        question: "Why does macOS say Yo can't be opened?",
+        answer: `Yo isn't signed with an Apple Developer certificate yet, so macOS blocks it the first time. The [install guide](${INSTALL_GUIDE_URL}) shows the one-time fix.`
       },
       {
-        question: 'How is Wu different from Zed?',
+        question: 'How is Yo different from Zed?',
         answer:
-          "Wu drops Zed's AI service, collaboration and telemetry features. It has its own agent chat built on the Claude Code, Codex and OpenCode CLIs, its own look, and several other improvements over Zed. See [docs](/docs/) for more."
+          "Yo drops Zed's AI service, collaboration and telemetry features. It has its own agent chat built on the Claude Code, Codex and OpenCode CLIs, its own look, and several other improvements over Zed. See [docs](/docs/) for more."
       },
       {
         question: 'Where can I report a problem?',
@@ -123,10 +123,10 @@ export const en = {
   },
   docs: {
     title: 'Docs',
-    intro: `This page covers what is specific to Wu. Wu shares its editor core with Zed, so for settings, key bindings, languages, extensions, tasks, debugging, and remote development, the [Zed documentation](${ZED_DOCS_URL}) applies to Wu as well.`,
+    intro: `This page covers what is specific to Yo. Yo shares its editor core with Zed, so for settings, key bindings, languages, extensions, tasks, debugging, and remote development, the [Zed documentation](${ZED_DOCS_URL}) applies to Yo as well.`,
     gettingStarted: {
       title: 'Getting started',
-      body: `On macOS and Linux, run \`${INSTALL_COMMAND}\` in your terminal. Or download Wu for your platform and follow the [install guide](${INSTALL_GUIDE_URL}).`,
+      body: `On macOS and Linux, run \`${INSTALL_COMMAND}\` in your terminal. Or download Yo for your platform and follow the [install guide](${INSTALL_GUIDE_URL}).`,
       paths: {
         commandLine: 'Command line',
         settingsUnix: 'Settings (macOS, Linux)',
@@ -138,7 +138,7 @@ export const en = {
     agentChat: {
       title: 'Agent Chat',
       intro:
-        'Chat with Claude Code, Codex or OpenCode inside Wu. It uses the command line tools you already have installed and signed in, so there are no API keys and no Wu account.',
+        'Chat with Claude Code, Codex or OpenCode inside Yo. It uses the command line tools you already have installed and signed in, so there are no API keys and no Yo account.',
       items: [
         '**Start a chat** from the agent icon in the activity bar. Continue Saved Chat picks up one you started in the terminal.',
         '**Type** `/` for commands, `@` to mention a file and `$` for a skill. Paste or drop images to attach them.',
@@ -160,11 +160,11 @@ export const en = {
     },
     extensions: {
       title: 'Extensions',
-      body: 'Wu installs extensions from the Zed extension registry, and they work in Wu without changes.'
+      body: 'Yo installs extensions from the Zed extension registry, and they work in Yo without changes.'
     },
     privacy: {
       title: 'Privacy',
-      body: 'Wu has no account, no telemetry, and no crash reporting. It never sends your usage data anywhere. Agent Chat only talks to the providers behind the tools you use.'
+      body: 'Yo has no account, no telemetry, and no crash reporting. It never sends your usage data anywhere. Agent Chat only talks to the providers behind the tools you use.'
     },
     notIncluded: {
       title: 'Not included',
@@ -174,30 +174,30 @@ export const en = {
         'Dev containers.',
         'The REPL and the journal.'
       ],
-      note: 'If a setting or key binding in the Zed docs belongs to one of these, it has no effect in Wu.'
+      note: 'If a setting or key binding in the Zed docs belongs to one of these, it has no effect in Yo.'
     },
     comingFromZed: {
       title: 'Coming from Zed',
-      body: 'Wu and Zed can be installed side by side. They keep separate settings, so copy your `settings.json` and `keymap.json` from `~/.config/zed` to `~/.config/wu` if you want the same setup in both.'
+      body: 'Yo and Zed can be installed side by side. They keep separate settings, so copy your `settings.json` and `keymap.json` from `~/.config/zed` to `~/.config/yo` if you want the same setup in both.'
     },
     raycast: {
       title: 'Raycast',
-      body: `On macOS, install the [Wu extension for Raycast](${RAYCAST_URL}) to open recent projects, new windows, and settings from Raycast.`
+      body: `On macOS, install the [Yo extension for Raycast](${RAYCAST_URL}) to open recent projects, new windows, and settings from Raycast.`
     },
     license: {
       title: 'License',
-      body: 'Wu is distributed under GPL-3.0-or-later, with Apache-2.0 components where marked.'
+      body: 'Yo is distributed under GPL-3.0-or-later, with Apache-2.0 components where marked.'
     }
   },
   support: {
-    title: 'Support Wu',
-    intro: "Wu is free and open source, with no account and no telemetry. It's built and maintained by one developer.",
-    why: 'If Wu is part of your day, a donation helps pay for the time it takes to fix bugs, add features and keep Wu up to date with Zed.',
+    title: 'Support Yo',
+    intro: "Yo is free and open source, with no account and no telemetry. It's built and maintained by one developer.",
+    why: 'If Yo is part of your day, a donation helps pay for the time it takes to fix bugs, add features and keep Yo up to date with Zed.',
     donate: 'Donate on Open Collective',
     donateNote: 'Open Collective handles the payment and shows every donation and expense in public.',
     otherWays: {
       title: 'Other ways to help',
-      body: 'Star Wu on GitHub, report bugs you run into, and tell a friend who might like it.',
+      body: 'Star Yo on GitHub, report bugs you run into, and tell a friend who might like it.',
       star: 'Star on GitHub',
       reportIssue: 'Report an issue'
     }
@@ -205,9 +205,9 @@ export const en = {
   notFound: {
     title: 'Page not found',
     body: "This page doesn't exist or has moved.",
-    back: 'Back to Wu'
+    back: 'Back to Yo'
   },
-  wuWindow: {
+  yoWindow: {
     panels: {
       explorer: 'Project Panel',
       search: 'Search',
@@ -416,7 +416,7 @@ export const en = {
       }
     ] as MockChat[],
     previewReply:
-      "This is only a preview, so there's no agent behind it. In Wu, Claude Code or Codex answers right here, using the CLI you already have signed in."
+      "This is only a preview, so there's no agent behind it. In Yo, Claude Code or Codex answers right here, using the CLI you already have signed in."
   },
   agentWindow: {
     message: 'Retry uploads that fail because of a network error',

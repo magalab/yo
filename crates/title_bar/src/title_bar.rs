@@ -44,7 +44,7 @@ use workspace::{
     Workspace,
 };
 
-use wu_actions::OpenRemote;
+use app_actions::OpenRemote;
 
 pub use onboarding_banner::restore_banner;
 
@@ -351,6 +351,16 @@ impl Render for TitleBar {
                 .pr_1()
                 .gap_1()
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .child(
+                    IconButton::new("title-bar-settings", IconName::Settings)
+                        .size(ButtonSize::Small)
+                        .icon_size(IconSize::Small)
+                        .tooltip(Tooltip::text(t!("Settings")))
+                        .aria_label(t!("Settings"))
+                        .on_click(|_, window, cx| {
+                            window.dispatch_action(app_actions::OpenSettings.boxed_clone(), cx);
+                        }),
+                )
                 .child(self.update_version.clone())
                 .into_any_element(),
         );
@@ -766,12 +776,12 @@ impl TitleBar {
                     .label_size(LabelSize::Small)
                     .color(Color::Muted)
                     .on_click(|_, window, cx| {
-                        window.dispatch_action(Box::new(wu_actions::OpenRecent::default()), cx)
+                        window.dispatch_action(Box::new(app_actions::OpenRecent::default()), cx)
                     })
                     .tooltip(|_window, cx| {
                         Tooltip::for_action(
                             t!("More Open Projects"),
-                            &wu_actions::OpenRecent::default(),
+                            &app_actions::OpenRecent::default(),
                             cx,
                         )
                     }),
@@ -835,7 +845,7 @@ impl TitleBar {
                 move |_window, cx| {
                     Tooltip::for_action(
                         t!("Recent Projects"),
-                        &wu_actions::OpenRecent::default(),
+                        &app_actions::OpenRecent::default(),
                         cx,
                     )
                 },
@@ -941,7 +951,7 @@ impl TitleBar {
                     move |_window, cx| {
                         Tooltip::with_meta(
                             t!("Worktree"),
-                            Some(&wu_actions::git::Worktree),
+                            Some(&app_actions::git::Worktree),
                             t!("Currently In Use: {worktree}", worktree = worktree_label),
                             cx,
                         )
@@ -1002,7 +1012,7 @@ impl TitleBar {
                         };
                         Tooltip::with_meta(
                             t!("Branch & Stash"),
-                            Some(&wu_actions::git::Branch),
+                            Some(&app_actions::git::Branch),
                             meta,
                             cx,
                         )
@@ -1043,7 +1053,7 @@ mod tests {
     #[test]
     fn project_tab_names_use_folder_names() {
         let key = |paths: &[&str]| ProjectGroupKey::new(None, PathList::new(paths));
-        assert_eq!(project_group_name(&key(&["/code/wu"])), "wu");
+        assert_eq!(project_group_name(&key(&["/code/yo"])), "yo");
         assert_eq!(
             project_group_name(&key(&["/code/api", "/code/web"])),
             "api, web"

@@ -15,7 +15,7 @@ use util::{
     schemars::{AllowTrailingCommas, DefaultDenyUnknownFields},
 };
 
-const SCHEMA_URI_PREFIX: &str = "wu://schemas/";
+const SCHEMA_URI_PREFIX: &str = "yo://schemas/";
 
 const TSCONFIG_SCHEMA: &str = include_str!("schemas/tsconfig.json");
 const PACKAGE_JSON_SCHEMA: &str = include_str!("schemas/package.json");

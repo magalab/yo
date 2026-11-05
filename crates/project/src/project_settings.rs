@@ -1048,9 +1048,9 @@ impl SettingsObserver {
                         legacy_file_path.clone(),
                         exists,
                     );
-                    // A `.zed` file shadowed by its `.wu` counterpart has no effect. Its
+                    // A `.zed` file shadowed by its `.yo` counterpart has no effect. Its
                     // removal still falls through so the `.zed` directory gets cleared,
-                    // e.g. when `.zed` was renamed to `.wu` in one batch.
+                    // e.g. when `.zed` was renamed to `.yo` in one batch.
                     if active_path == file_path
                         && *path != file_path
                         && exists(&file_path)
@@ -1063,7 +1063,7 @@ impl SettingsObserver {
                     } else {
                         file_path
                     };
-                    // Tasks and debug configs are keyed by their `.wu` or `.zed` directory,
+                    // Tasks and debug configs are keyed by their `.yo` or `.zed` directory,
                     // so the directory that lost precedence has to be cleared explicitly.
                     if let Some(shadowed_dir) =
                         strip_components(&shadowed_path, file.directory_depth)
@@ -1136,12 +1136,12 @@ impl SettingsObserver {
                                     let zed_tasks = TaskTemplates::try_from(vscode_tasks)
                                         .with_context(|| {
                                             format!(
-                                        "converting VSCode tasks into Wu ones, file {abs_path:?}"
+                                        "converting VSCode tasks into Yo ones, file {abs_path:?}"
                                     )
                                         })?;
                                     serde_json::to_string(&zed_tasks).with_context(|| {
                                         format!(
-                                            "serializing Wu tasks into JSON, file {abs_path:?}"
+                                            "serializing Yo tasks into JSON, file {abs_path:?}"
                                         )
                                     })
                                 } else if abs_path.ends_with(local_vscode_launch_file_relative_path().as_std_path()) {
@@ -1153,12 +1153,12 @@ impl SettingsObserver {
                                     let zed_tasks = DebugTaskFile::try_from(vscode_tasks)
                                         .with_context(|| {
                                             format!(
-                                        "converting VSCode debug tasks into Wu ones, file {abs_path:?}"
+                                        "converting VSCode debug tasks into Yo ones, file {abs_path:?}"
                                     )
                                         })?;
                                     serde_json::to_string(&zed_tasks).with_context(|| {
                                         format!(
-                                            "serializing Wu tasks into JSON, file {abs_path:?}"
+                                            "serializing Yo tasks into JSON, file {abs_path:?}"
                                         )
                                     })
                                 } else {

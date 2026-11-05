@@ -58,9 +58,9 @@ struct UpdateLock {
 impl UpdateLock {
     fn path() -> PathBuf {
         #[cfg(test)]
-        let file_name = format!("wu-auto-update-{}.lock", std::process::id());
+        let file_name = format!("yo-auto-update-{}.lock", std::process::id());
         #[cfg(not(test))]
-        let file_name = "wu-auto-update.lock".to_string();
+        let file_name = "yo-auto-update.lock".to_string();
         paths::temp_dir().join(file_name)
     }
 
@@ -75,7 +75,7 @@ impl UpdateLock {
         match file.try_lock() {
             Ok(()) => Ok(Self { _file: file }),
             Err(std::fs::TryLockError::WouldBlock) => {
-                anyhow::bail!("another Wu instance is already checking for updates")
+                anyhow::bail!("another Yo instance is already checking for updates")
             }
             Err(std::fs::TryLockError::Error(error)) => {
                 Err(error).with_context(|| format!("locking update lock at {path:?}"))
@@ -231,7 +231,7 @@ pub struct ReleaseAsset {
     pub digest: Option<String>,
 }
 
-const GITHUB_RELEASES_API_URL: &str = "https://api.github.com/repos/dstrml/wu/releases";
+const GITHUB_RELEASES_API_URL: &str = "https://api.github.com/repos/magalab/yo/releases";
 
 #[derive(Deserialize)]
 struct GitHubRelease {
@@ -249,10 +249,10 @@ struct GitHubReleaseAsset {
 
 fn github_asset_name(asset: &str, os: &str, arch: &str) -> Result<String> {
     match (asset, os) {
-        ("zed", "macos") => Ok(format!("Wu-{arch}.dmg")),
-        ("zed", "linux") => Ok(format!("wu-linux-{arch}.tar.gz")),
-        ("zed", "windows") => Ok(format!("Wu-{arch}.exe")),
-        ("wu-remote-server", _) => Ok(format!("wu-remote-server-{os}-{arch}.gz")),
+        ("zed", "macos") => Ok(format!("Yo-{arch}.dmg")),
+        ("zed", "linux") => Ok(format!("yo-linux-{arch}.tar.gz")),
+        ("zed", "windows") => Ok(format!("Yo-{arch}.exe")),
+        ("yo-remote-server", _) => Ok(format!("yo-remote-server-{os}-{arch}.gz")),
         _ => anyhow::bail!("no release asset for {asset} on {os}"),
     }
 }
@@ -376,7 +376,7 @@ pub fn check(_: &Check, window: &mut Window, cx: &mut App) {
     {
         drop(window.prompt(
             gpui::PromptLevel::Info,
-            &t!("Wu was installed via a package manager."),
+            &t!("Yo was installed via a package manager."),
             Some(&message),
             &[PromptButton::ok(t!("OK"))],
             cx,
@@ -413,9 +413,9 @@ pub fn release_notes_url(cx: &mut App) -> Option<String> {
             let mut current_version = auto_updater.current_version.clone();
             current_version.pre = semver::Prerelease::EMPTY;
             current_version.build = semver::BuildMetadata::EMPTY;
-            format!("https://github.com/dstrml/wu/releases/tag/v{current_version}")
+            format!("https://github.com/magalab/yo/releases/tag/v{current_version}")
         }
-        ReleaseChannel::Dev => "https://github.com/dstrml/wu/commits/main/".to_string(),
+        ReleaseChannel::Dev => "https://github.com/magalab/yo/commits/main/".to_string(),
     };
     Some(url)
 }
@@ -427,7 +427,7 @@ pub fn view_release_notes(_: &ViewReleaseNotes, cx: &mut App) -> Option<()> {
 }
 
 #[cfg(not(target_os = "windows"))]
-const INSTALLER_DIR_PREFIX: &str = "wu-auto-update";
+const INSTALLER_DIR_PREFIX: &str = "yo-auto-update";
 
 #[cfg(not(target_os = "windows"))]
 struct InstallerDir(tempfile::TempDir);
@@ -455,7 +455,7 @@ impl InstallerDir {
     async fn new() -> Result<Self> {
         let installer_dir = std::env::current_exe()?
             .parent()
-            .context("No parent dir for Wu.exe")?
+            .context("No parent dir for Yo.exe")?
             .join("updates");
         if smol::fs::metadata(&installer_dir).await.is_ok() {
             smol::fs::remove_dir_all(&installer_dir).await?;
@@ -667,7 +667,7 @@ impl AutoUpdater {
             &this,
             release_channel,
             version,
-            "wu-remote-server",
+            "yo-remote-server",
             os,
             arch,
             cx,
@@ -684,7 +684,7 @@ impl AutoUpdater {
 
         if smol::fs::metadata(&version_path).await.is_err() {
             log::info!(
-                "downloading wu-remote-server {os} {arch} version {}",
+                "downloading yo-remote-server {os} {arch} version {}",
                 release.version
             );
             set_status(&t!("Downloading remote server"), cx);
@@ -719,7 +719,7 @@ impl AutoUpdater {
         })?;
 
         let release =
-            Self::get_release_asset(&this, channel, version, "wu-remote-server", os, arch, cx)
+            Self::get_release_asset(&this, channel, version, "yo-remote-server", os, arch, cx)
                 .await?;
 
         Ok(Some(release.url))
@@ -959,9 +959,9 @@ impl AutoUpdater {
 
     async fn target_path(installer_dir: &InstallerDir) -> Result<PathBuf> {
         let filename = match OS {
-            "macos" => anyhow::Ok("Wu.dmg"),
-            "linux" => Ok("wu.tar.gz"),
-            "windows" => Ok("Wu.exe"),
+            "macos" => anyhow::Ok("Yo.dmg"),
+            "linux" => Ok("yo.tar.gz"),
+            "windows" => Ok("Yo.exe"),
             unsupported_os => anyhow::bail!("not supported: {unsupported_os}"),
         }?;
 
@@ -1214,7 +1214,7 @@ async fn install_release_linux(
 ) -> Result<Option<PathBuf>> {
     let home_dir = PathBuf::from(env::var("HOME").context("no HOME env var set")?);
 
-    let extracted = temp_dir.path().join("wu");
+    let extracted = temp_dir.path().join("yo");
     fs::create_dir_all(&extracted)
         .await
         .context("failed to create directory into which to extract update")?;
@@ -1242,12 +1242,12 @@ async fn install_release_linux(
     } else {
         String::default()
     };
-    let app_folder_name = format!("wu{}.app", suffix);
+    let app_folder_name = format!("yo{}.app", suffix);
 
     let from = extracted.join(&app_folder_name);
     let mut to = home_dir.join(".local");
 
-    let expected_suffix = format!("{}/libexec/wu-editor", app_folder_name);
+    let expected_suffix = format!("{}/libexec/yo-editor", app_folder_name);
 
     if let Some(prefix) = running_app_path
         .to_str()
@@ -1265,7 +1265,7 @@ async fn install_release_linux(
 
     anyhow::ensure!(
         output.status.success(),
-        "failed to copy Wu update from {:?} to {:?}: {:?}",
+        "failed to copy Yo update from {:?} to {:?}: {:?}",
         from,
         to,
         String::from_utf8_lossy(&output.stderr)
@@ -1284,7 +1284,7 @@ async fn install_release_macos(
         .file_name()
         .with_context(|| format!("invalid running app path {running_app_path:?}"))?;
 
-    let mount_path = temp_dir.path().join("Wu");
+    let mount_path = temp_dir.path().join("Yo");
     let mut mounted_app_path: OsString = mount_path.join(running_app_filename).into();
 
     mounted_app_path.push("/");
@@ -1379,7 +1379,7 @@ async fn cleanup_stale_installer_dirs() {
 async fn cleanup_windows() -> Result<()> {
     let parent = std::env::current_exe()?
         .parent()
-        .context("No parent dir for Wu.exe")?
+        .context("No parent dir for Yo.exe")?
         .to_owned();
 
     // keep in sync with crates/auto_update_helper/src/updater.rs. `updates` and
@@ -1422,7 +1422,7 @@ async fn install_release_windows(downloaded_installer: &Path) -> Result<Option<P
     // deleting the old one, and launching the new binary.
     let helper_path = std::env::current_exe()?
         .parent()
-        .context("No parent dir for Wu.exe")?
+        .context("No parent dir for Yo.exe")?
         .join("tools")
         .join("auto_update_helper.exe");
     Ok(Some(helper_path))

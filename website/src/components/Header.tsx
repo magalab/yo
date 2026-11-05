@@ -37,7 +37,7 @@ export function Header({ downloadHref }: { downloadHref?: string }) {
           href={localePath(locale, '/')}
         >
           <AppIcon className="size-8 rounded-full" />
-          Wu
+          Yo
         </a>
         <nav className={`${glassPill} flex gap-0.5 p-1`}>
           <a className="btn btn-md btn-ghost" href={localePath(locale, '/docs/')}>

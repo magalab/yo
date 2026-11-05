@@ -16,7 +16,7 @@ use workspace::{
         simple_message_notification::MessageNotification,
     },
 };
-use wu_actions::ShowUpdateNotification;
+use app_actions::ShowUpdateNotification;
 
 actions!(
     auto_update,

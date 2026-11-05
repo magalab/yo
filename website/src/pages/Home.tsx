@@ -10,7 +10,7 @@ import { InstallCommand } from '../components/InstallCommand';
 import { MemoryChart } from '../components/MemoryChart';
 import { RichText } from '../components/RichText';
 import { CenterSection, MediaSection, frameOutline, mediaFrame, sectionBody, sectionTitle } from '../components/Section';
-import { WuWindowFrame } from '../components/WuWindow';
+import { EditorWindowFrame } from '../components/EditorWindow';
 import { MEMORY_BENCHMARK_URL, REPO_URL } from '../consts';
 import {
   detectMacArchitecture,
@@ -83,7 +83,7 @@ export function Home({ locale }: { locale: Locale }) {
                 <div className="mt-2 flex flex-wrap gap-2">
                   <a className="btn btn-lg btn-light" href={downloadHref}>
                     <Download size={18} aria-hidden="true" />
-                    {direct && platform ? t.downloadFor(platformNames[platform]) : t.downloadWu}
+                    {direct && platform ? t.downloadFor(platformNames[platform]) : t.downloadYo}
                   </a>
                   <a className="btn btn-lg btn-primary" href="#download">
                     {t.allPlatforms}
@@ -94,7 +94,7 @@ export function Home({ locale }: { locale: Locale }) {
           </section>
 
           <section className="mx-auto mt-28 max-w-[1240px] px-8 max-sm:mt-18 max-sm:px-4">
-            <WuWindowFrame className={`${mediaFrame} ${frameOutline}`} />
+            <EditorWindowFrame className={`${mediaFrame} ${frameOutline}`} />
           </section>
         </div>
 

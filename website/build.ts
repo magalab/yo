@@ -5,6 +5,9 @@ import { SITE_URL } from './src/consts';
 import { renderPage } from './src/render';
 import { routes } from './src/routes';
 
+const site = new URL(SITE_URL);
+if (site.pathname !== '/') throw new Error('SITE_URL must use a root domain; subpath hosting is not supported');
+
 const root = import.meta.dir;
 const outdir = path.join(root, 'dist');
 
@@ -30,7 +33,7 @@ async function bundleAssets(): Promise<Map<string, string>> {
       chunk: 'assets/chunk-[hash].[ext]',
       asset: 'assets/[name]-[hash].[ext]'
     },
-    define: { 'process.env.NODE_ENV': JSON.stringify('production') }
+    define: { 'process.env.NODE_ENV': JSON.stringify('production'), 'process.env.SITE_URL': JSON.stringify(SITE_URL) }
   });
 
   // CSS entrypoints are reported as kind "asset", so "assets/index-ab12cd34.css" maps to "index".

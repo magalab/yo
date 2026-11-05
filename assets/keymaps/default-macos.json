@@ -3,7 +3,14 @@
     "context": "VimControl && !menu",
     "bindings": {
       "i": "editor::VimInsertMode",
+      "shift-i": "editor::VimInsertLineStart",
+      "shift-d": "editor::VimDeleteToLineEnd",
+      "shift-c": "editor::VimChangeToLineEnd",
+      "s": "editor::VimSubstituteCharacter",
+      "c c": "editor::VimChangeLine",
+      "shift-a": "editor::VimAppendLineEnd",
       "v": "editor::VimVisualMode",
+      "shift-v": "editor::VimVisualLineMode",
       "a": "editor::VimAppendMode",
       "o": "editor::VimOpenLineBelow",
       "shift-o": "editor::VimOpenLineAbove",
@@ -82,15 +89,15 @@
       "cmd-shift-w": "workspace::CloseWindow",
       "shift-escape": "workspace::ToggleZoom",
       "cmd-o": "workspace::Open",
-      "cmd-=": ["wu::IncreaseBufferFontSize", { "persist": false }],
-      "cmd-+": ["wu::IncreaseBufferFontSize", { "persist": false }],
-      "cmd--": ["wu::DecreaseBufferFontSize", { "persist": false }],
-      "cmd-0": ["wu::ResetBufferFontSize", { "persist": false }],
-      "cmd-alt-,": "wu::OpenSettingsFile",
-      "cmd-q": "wu::Quit",
-      "cmd-h": "wu::Hide",
-      "alt-cmd-h": "wu::HideOthers",
-      "cmd-m": "wu::Minimize",
+      "cmd-=": ["yo::IncreaseBufferFontSize", { "persist": false }],
+      "cmd-+": ["yo::IncreaseBufferFontSize", { "persist": false }],
+      "cmd--": ["yo::DecreaseBufferFontSize", { "persist": false }],
+      "cmd-0": ["yo::ResetBufferFontSize", { "persist": false }],
+      "cmd-alt-,": "yo::OpenSettingsFile",
+      "cmd-q": "yo::Quit",
+      "cmd-h": "yo::Hide",
+      "alt-cmd-h": "yo::HideOthers",
+      "cmd-m": "yo::Minimize",
       "ctrl-cmd-l": "lsp_tool::ToggleMenu",
       "ctrl-cmd-s": "workspace::ToggleWorktreeSecurity",
     },
@@ -411,7 +418,7 @@
       "cmd-f2": "editor::SelectAllMatches", // Select all occurrences of current word
       "cmd-k cmd-d": ["editor::SelectNext", { "replace_newest": true }], // editor.action.moveSelectionToNextFindMatch / find_under_expand_skip
       // macOS binds `ctrl-cmd-d` to Show Dictionary which breaks these two binds
-      // To use `ctrl-cmd-d` or `ctrl-k ctrl-cmd-d` in Wu you must execute this command and then restart:
+      // To use `ctrl-cmd-d` or `ctrl-k ctrl-cmd-d` in Yo you must execute this command and then restart:
       //   defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add 70 '<dict><key>enabled</key><false/></dict>'
       "ctrl-cmd-d": ["editor::SelectPrevious", { "replace_newest": false }], // editor.action.addSelectionToPreviousFindMatch
       "cmd-k ctrl-cmd-d": ["editor::SelectPrevious", { "replace_newest": true }], // editor.action.moveSelectionToPreviousFindMatch
@@ -448,7 +455,7 @@
       "cmd-k cmd-9": "editor::FoldAtLevel_9",
       "cmd-k cmd-0": "editor::FoldAll",
       "cmd-k cmd-j": "editor::UnfoldAll",
-      // Using `ctrl-space` / `ctrl-shift-space` in Wu requires disabling the macOS global shortcut.
+      // Using `ctrl-space` / `ctrl-shift-space` in Yo requires disabling the macOS global shortcut.
       // System Preferences->Keyboard->Keyboard Shortcuts->Input Sources->Select the previous input source (uncheck)
       "ctrl-space": "editor::ShowCompletions",
       "ctrl-shift-space": "editor::ShowWordCompletions",
@@ -522,8 +529,8 @@
       "f6": "workspace::FocusNextPart",
       "shift-f6": "workspace::FocusPreviousPart",
       "cmd-f6": "workspace::FocusNextPart",
-      "fn-f": "wu::ToggleFullScreen",
-      "ctrl-cmd-f": "wu::ToggleFullScreen",
+      "fn-f": "yo::ToggleFullScreen",
+      "ctrl-cmd-f": "yo::ToggleFullScreen",
       // Change the default action on `menu::Confirm` by setting the parameter
       // "alt-cmd-o": ["projects::OpenRecent", {"create_new_window": true }],
       "alt-cmd-o": "projects::OpenRecent",
@@ -564,7 +571,7 @@
       "cmd-shift-h": ["pane::DeploySearch", { "replace_enabled": true }],
       "cmd-shift-t": "pane::ReopenClosedItem",
       "cmd-k cmd-p": "workspace::ReopenLastPicker",
-      "cmd-k cmd-s": "wu::OpenKeymap",
+      "cmd-k cmd-s": "yo::OpenKeymap",
       "cmd-k cmd-t": "theme_selector::Toggle",
       "cmd-k cmd-shift-t": "theme::ToggleMode",
       "ctrl-alt-cmd-p": "settings_profile_selector::Toggle",
@@ -590,7 +597,7 @@
       "cmd-k shift-right": "workspace::SwapPaneRight",
       "cmd-k shift-up": "workspace::SwapPaneUp",
       "cmd-k shift-down": "workspace::SwapPaneDown",
-      "cmd-shift-x": "wu::Extensions",
+      "cmd-shift-x": "yo::Extensions",
       "f5": "debugger::Rerun",
     },
   },
@@ -1060,7 +1067,7 @@
       "cmd-home": "terminal::ScrollToTop",
       "shift-end": "terminal::ScrollToBottom",
       "cmd-end": "terminal::ScrollToBottom",
-      // Using `ctrl-shift-space` in Wu requires disabling the macOS global shortcut.
+      // Using `ctrl-shift-space` in Yo requires disabling the macOS global shortcut.
       // System Preferences->Keyboard->Keyboard Shortcuts->Input Sources->Select the previous input source (uncheck)
       "ctrl-shift-space": "terminal::ToggleViMode",
       "ctrl-alt-up": "pane::SplitUp",
@@ -1138,7 +1145,7 @@
       "cmd-c": "keymap_editor::CopyAction",
       "cmd-shift-c": "keymap_editor::CopyContext",
       "cmd-t": "keymap_editor::ShowMatchingKeybinds",
-      "cmd-e": "wu::OpenKeymapFile",
+      "cmd-e": "yo::OpenKeymapFile",
     },
   },
   {
@@ -1170,10 +1177,10 @@
     "context": "Onboarding",
     "use_key_equivalents": true,
     "bindings": {
-      "cmd-=": ["wu::IncreaseUiFontSize", { "persist": false }],
-      "cmd-+": ["wu::IncreaseUiFontSize", { "persist": false }],
-      "cmd--": ["wu::DecreaseUiFontSize", { "persist": false }],
-      "cmd-0": ["wu::ResetUiFontSize", { "persist": false }],
+      "cmd-=": ["yo::IncreaseUiFontSize", { "persist": false }],
+      "cmd-+": ["yo::IncreaseUiFontSize", { "persist": false }],
+      "cmd--": ["yo::DecreaseUiFontSize", { "persist": false }],
+      "cmd-0": ["yo::ResetUiFontSize", { "persist": false }],
       "cmd-enter": "onboarding::Finish",
     },
   },
@@ -1182,10 +1189,10 @@
     "use_key_equivalents": true,
     "bindings": {
       "cmd-n": "workspace::NewFile",
-      "cmd-=": ["wu::IncreaseUiFontSize", { "persist": false }],
-      "cmd-+": ["wu::IncreaseUiFontSize", { "persist": false }],
-      "cmd--": ["wu::DecreaseUiFontSize", { "persist": false }],
-      "cmd-0": ["wu::ResetUiFontSize", { "persist": false }],
+      "cmd-=": ["yo::IncreaseUiFontSize", { "persist": false }],
+      "cmd-+": ["yo::IncreaseUiFontSize", { "persist": false }],
+      "cmd--": ["yo::DecreaseUiFontSize", { "persist": false }],
+      "cmd-0": ["yo::ResetUiFontSize", { "persist": false }],
       "cmd-1": ["welcome::OpenRecentProject", 0],
       "cmd-2": ["welcome::OpenRecentProject", 1],
       "cmd-3": ["welcome::OpenRecentProject", 2],
@@ -1206,7 +1213,7 @@
     "context": "!SettingsWindow",
     "use_key_equivalents": true,
     "bindings": {
-      "cmd-,": "wu::OpenSettings",
+      "cmd-,": "yo::OpenSettings",
     },
   },
   {
@@ -1305,7 +1312,7 @@
     "bindings": {
       "cmd-shift-backspace": "worktree_picker::DeleteWorktree",
       "cmd-alt-shift-backspace": "worktree_picker::ForceDeleteWorktree",
-      "cmd-shift-c": "wu::OpenWorktreeSetupTasks",
+      "cmd-shift-c": "yo::OpenWorktreeSetupTasks",
     },
   },
   {

@@ -156,7 +156,7 @@ pub use workspace_settings::{
     FocusFollowsMouse, RestoreOnStartupBehavior, StatusBarSettings, TabBarSettings,
     WorkspaceSettings, closing_last_window_quits_app, observe_accessible_mode,
 };
-use wu_actions::{Spawn, theme::ToggleMode};
+use app_actions::{Spawn, theme::ToggleMode};
 
 use crate::{dock::PanelSizeState, item::ItemBufferKind, notifications::NotificationId};
 use crate::{
@@ -8544,11 +8544,11 @@ pub async fn apply_restored_multiworkspace_state(
 }
 
 actions!(
-    wu,
+    yo,
     [
-        /// Opens the Wu log file.
+        /// Opens the Yo log file.
         OpenLog,
-        /// Reveals the Wu log file in the system file manager.
+        /// Reveals the Yo log file in the system file manager.
         RevealLogInFileManager
     ]
 );
@@ -9489,7 +9489,7 @@ pub async fn restart_and_restore_workspaces(
     Ok(true)
 }
 
-/// Names work that closing Wu would stop, so quitting and restarting ask first.
+/// Names work that closing Yo would stop, so quitting and restarting ask first.
 pub struct QuitWarning(pub fn(&App) -> Option<String>);
 
 impl Global for QuitWarning {}
@@ -9543,10 +9543,10 @@ async fn confirm_quit_warning(
             window.prompt(
                 PromptLevel::Warning,
                 &warning,
-                Some(&t!("Closing Wu now stops it.")),
+                Some(&t!("Closing Yo now stops it.")),
                 &[
                     PromptButton::cancel(t!("Cancel")),
-                    PromptButton::new(t!("Close Wu")),
+                    PromptButton::new(t!("Close Yo")),
                 ],
                 cx,
             )
@@ -16588,7 +16588,7 @@ mod tests {
     async fn test_toggle_theme_mode_persists_and_updates_active_theme(cx: &mut TestAppContext) {
         use settings::{ThemeName, ThemeSelection};
         use theme::SystemAppearance;
-        use wu_actions::theme::ToggleMode;
+        use app_actions::theme::ToggleMode;
 
         init_test(cx);
 

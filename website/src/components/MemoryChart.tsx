@@ -15,8 +15,8 @@ export function MemoryChart() {
           <div key={scenario.id} className="grid gap-2.5">
             <h3 className="mb-0.5 text-[15px] font-medium text-secondary">{t.scenarios[scenario.id]}</h3>
             {scenario.results.map((result) => {
-              const isWu = result.editor === 'Wu';
-              const tone = isWu ? 'font-semibold' : 'text-secondary';
+              const isYo = result.editor === 'Yo';
+              const tone = isYo ? 'font-semibold' : 'text-secondary';
               return (
                 <div
                   key={result.editor}
@@ -26,7 +26,7 @@ export function MemoryChart() {
                   <span className={tone}>{result.editor}</span>
                   <span className="flex h-[22px]">
                     <span
-                      className={`rounded-r ${isWu ? 'bg-accent' : 'bg-elevated/20'}`}
+                      className={`rounded-r ${isYo ? 'bg-accent' : 'bg-elevated/20'}`}
                       style={{ width: `${(result.mib / largestMib) * 100}%` }}
                     />
                   </span>

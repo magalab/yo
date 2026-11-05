@@ -8,7 +8,7 @@ use workspace::AppState;
 use crate::div_inspector::DivInspector;
 
 pub fn init(app_state: Arc<AppState>, cx: &mut App) {
-    cx.on_action(|_: &wu_actions::dev::ToggleInspector, cx| {
+    cx.on_action(|_: &app_actions::dev::ToggleInspector, cx| {
         let Some(active_window) = cx
             .active_window()
             .context("no active window to toggle inspector")
@@ -140,7 +140,7 @@ fn render_inspector_id(inspector_id: &InspectorElementId, cx: &App) -> Div {
                 .font_buffer(cx)
                 .text_xs()
                 .child(source_location_string)
-                .tooltip(Tooltip::text("Click to open by running Wu CLI"))
+                .tooltip(Tooltip::text("Click to open by running Yo CLI"))
                 .on_click(move |_, _window, cx| {
                     cx.background_spawn(open_zed_source_location(source_location))
                         .detach_and_log_err(cx);

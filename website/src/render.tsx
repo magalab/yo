@@ -24,7 +24,7 @@ export function renderPage(route: Route, { css, js }: Assets): string {
         `    <link rel="alternate" hreflang="x-default" href="${pageUrl(route.alternates.en)}" />\n`
       ].join('')
     : '';
-  const image = `${SITE_URL}/wu-preview.png`;
+  const image = `${SITE_URL}/app-preview.png`;
   const app = js ? renderToString(route.element) : renderToStaticMarkup(route.element);
 
   return `<!doctype html>

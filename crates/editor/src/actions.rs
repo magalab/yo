@@ -413,6 +413,18 @@ actions!(
         VimInsertMode,
         /// Enters insert mode after the cursor in the lightweight Vim mode.
         VimAppendMode,
+        /// Enters insert mode at the first non-whitespace character of the line.
+        VimInsertLineStart,
+        /// Enters insert mode at the end of the current line.
+        VimAppendLineEnd,
+        /// Deletes from the cursor to the end of the line.
+        VimDeleteToLineEnd,
+        /// Deletes from the cursor to the end of the line and enters insert mode.
+        VimChangeToLineEnd,
+        /// Replaces the character under the cursor and enters insert mode.
+        VimSubstituteCharacter,
+        /// Replaces the current line and enters insert mode.
+        VimChangeLine,
         /// Enters normal mode in the lightweight Vim mode.
         VimNormalMode,
         /// Opens a line below and enters insert mode in the lightweight Vim mode.
@@ -423,6 +435,8 @@ actions!(
         VimYankLine,
         /// Enters character selection mode in lightweight Vim mode.
         VimVisualMode,
+        /// Enters line selection mode in lightweight Vim mode.
+        VimVisualLineMode,
         /// Copies the current character selection and returns to normal mode.
         VimYankSelection,
         /// Deletes the current character selection and returns to normal mode.

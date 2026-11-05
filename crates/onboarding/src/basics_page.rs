@@ -17,10 +17,10 @@ use crate::{
     theme_preview::{ThemePreviewStyle, ThemePreviewTile},
 };
 
-const LIGHT_THEMES: [&str; 3] = ["Wu Light", "Catppuccin Latte", "One Light"];
-const DARK_THEMES: [&str; 3] = ["Wu Dark", "Catppuccin Mocha", "One Dark"];
+const LIGHT_THEMES: [&str; 3] = ["Yo Light", "Catppuccin Latte", "One Light"];
+const DARK_THEMES: [&str; 3] = ["Yo Dark", "Catppuccin Mocha", "One Dark"];
 const FAMILY_NAMES: [SharedString; 3] = [
-    SharedString::new_static("Wu"),
+    SharedString::new_static("Yo"),
     SharedString::new_static("Catppuccin"),
     SharedString::new_static("One"),
 ];
@@ -237,7 +237,7 @@ fn render_base_keymap_section(tab_index: &mut isize, cx: &mut App) -> impl IntoE
         ToggleButtonGroup::two_rows(
             "base_keymap_selection",
             [
-                ToggleButtonWithIcon::new("Wu", IconName::Wu, |_, _, cx| {
+                ToggleButtonWithIcon::new("Yo", IconName::Yo, |_, _, cx| {
                     write_keymap_base(BaseKeymap::Zed, cx);
                 }),
                 ToggleButtonWithIcon::new("VS Code", IconName::EditorVsCode, |_, _, cx| {
@@ -291,14 +291,14 @@ fn render_worktree_auto_trust_switch(tab_index: &mut isize, cx: &mut App) -> imp
     };
 
     let tooltip_description = t!(
-        "Wu can only allow services like language servers, project settings, and MCP servers to run after you mark a new project as trusted."
+        "Yo can only allow services like language servers, project settings, and MCP servers to run after you mark a new project as trusted."
     );
 
     SwitchField::new(
         "onboarding-auto-trust-worktrees",
         Some(t!("Trust All Projects By Default")),
         Some(t!(
-            "Automatically mark all new projects as trusted to unlock all Wu's features"
+            "Automatically mark all new projects as trusted to unlock all Yo's features"
         )),
         toggle_state,
         {
@@ -400,7 +400,7 @@ fn render_install_cli_section(tab_index: &mut isize) -> impl IntoElement {
                 .child(Label::new(t!("Terminal Command")))
                 .child(
                     Label::new(t!(
-                        "Open files and folders from the terminal with the wu command"
+                        "Open files and folders from the terminal with the yo command"
                     ))
                     .color(Color::Muted),
                 ),

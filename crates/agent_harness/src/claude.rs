@@ -261,7 +261,7 @@ impl ClaudeHarness {
             shutdown_child(&mut child, self.kill_grace).await;
             return Err(HarnessError::Protocol("claude child has no stdio".into()));
         };
-        const PROBE_ID: &str = "wu-initialize-probe";
+        const PROBE_ID: &str = "yo-initialize-probe";
         let discovery = async {
             let request = serde_json::json!({
                 "type": "control_request",
@@ -309,7 +309,7 @@ impl ClaudeHarness {
     }
 }
 
-// Settings and info commands answer outside the chat, and Wu has its own controls for them.
+// Settings and info commands answer outside the chat, and Yo has its own controls for them.
 const HIDDEN_COMMANDS: &[&str] = &[
     "__remote-workflow",
     "add-dir",
@@ -941,7 +941,7 @@ async fn run_session(session: Session) {
                         Err(e) => {
                             if let Some(request_id) = wire::unreadable_control_request_id(line) {
                                 log::warn!("couldn't read a claude request ({e}); answering with an error");
-                                let line = control_error_line(&request_id, "Wu couldn't read this request.");
+                                let line = control_error_line(&request_id, "Yo couldn't read this request.");
                                 stdin_tx.send(StdinMsg::Line(line)).ok();
                             } else {
                                 log::debug!("unparseable frame (skipped): {e}");
@@ -1136,9 +1136,9 @@ type RequestInputFn = Box<
         + Sync,
 >;
 
-const SET_MODE_REQUEST_PREFIX: &str = "wu-set-mode-";
+const SET_MODE_REQUEST_PREFIX: &str = "yo-set-mode-";
 
-/// Claude refuses `bypassPermissions` unless launched in it, so it asks instead and Wu approves.
+/// Claude refuses `bypassPermissions` unless launched in it, so it asks instead and Yo approves.
 fn live_permission_mode_name(permission: PermissionMode, launched_bypass: bool) -> &'static str {
     match permission_mode_name(permission) {
         "bypassPermissions" if !launched_bypass => "default",
@@ -1187,7 +1187,7 @@ fn handle_control_request(
         }
         subtype => {
             log::warn!("claude sent an unsupported {subtype} request; answering with an error");
-            let error = format!("Wu can't answer {subtype} requests.");
+            let error = format!("Yo can't answer {subtype} requests.");
             let line = control_error_line(&req.request_id, &error);
             stdin_tx.send(StdinMsg::Line(line)).ok();
             return;
@@ -1278,7 +1278,7 @@ fn answer_elicitation(
     let request_id = req.request_id;
     let Some(question) = elicitation_question(&req.request) else {
         log::warn!(
-            "declining a {} question from {} that Wu can't show",
+            "declining a {} question from {} that Yo can't show",
             req.request.text("mode").unwrap_or("form"),
             req.request
                 .text("mcp_server_name")

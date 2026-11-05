@@ -117,21 +117,21 @@ impl AppCommand {
 
     fn description(self) -> SharedString {
         match self {
-            AppCommand::Model => t!("Wu: choose model and reasoning"),
-            AppCommand::New => t!("Wu: start a new chat"),
-            AppCommand::Resume => t!("Wu: open chat history"),
-            AppCommand::Settings => t!("Wu: open settings"),
-            AppCommand::Diff => t!("Wu: open changes"),
-            AppCommand::Files => t!("Wu: open project files"),
-            AppCommand::Terminal => t!("Wu: open a terminal"),
-            AppCommand::Stop => t!("Wu: stop the agent"),
+            AppCommand::Model => t!("Yo: choose model and reasoning"),
+            AppCommand::New => t!("Yo: start a new chat"),
+            AppCommand::Resume => t!("Yo: open chat history"),
+            AppCommand::Settings => t!("Yo: open settings"),
+            AppCommand::Diff => t!("Yo: open changes"),
+            AppCommand::Files => t!("Yo: open project files"),
+            AppCommand::Terminal => t!("Yo: open a terminal"),
+            AppCommand::Stop => t!("Yo: stop the agent"),
         }
     }
 
     /// Dispatched by name so this crate needn't depend on every panel crate.
     pub fn action_name(self) -> Option<&'static str> {
         match self {
-            AppCommand::Settings => Some("wu::OpenSettings"),
+            AppCommand::Settings => Some("yo::OpenSettings"),
             AppCommand::Diff => Some("git_panel::ToggleFocus"),
             AppCommand::Files => Some("project_panel::ToggleFocus"),
             AppCommand::Terminal => Some("terminal_panel::ToggleFocus"),
@@ -171,7 +171,7 @@ pub(crate) fn command_items(agent_commands: &[SlashCommand]) -> Vec<CommandItem>
     for command in AppCommand::ALL {
         let mut name = command.name().to_string();
         while items.iter().any(|item| item.name == name) {
-            name = format!("wu:{name}");
+            name = format!("yo:{name}");
         }
         items.push(CommandItem {
             name,
@@ -266,12 +266,12 @@ mod tests {
     }
 
     #[test]
-    fn wu_commands_step_aside_for_agent_commands() {
+    fn yo_commands_step_aside_for_agent_commands() {
         let items = command_items(&[agent("review"), agent("model")]);
         let names: Vec<&str> = items.iter().map(|item| item.name.as_str()).collect();
-        assert_eq!(&names[..3], ["review", "model", "wu:model"]);
+        assert_eq!(&names[..3], ["review", "model", "yo:model"]);
         assert_eq!(
-            app_command_for_text(" /wu:model ", &items),
+            app_command_for_text(" /yo:model ", &items),
             Some(AppCommand::Model)
         );
         assert_eq!(app_command_for_text("/model", &items), None);

@@ -58,14 +58,14 @@ if ($vsDevShell) {
 $workspace = (Resolve-Path "$PSScriptRoot\..").Path
 $env:ZED_WORKSPACE = $workspace
 
-Push-Location -Path "$workspace\crates\wu"
+Push-Location -Path "$workspace\crates\yo"
 $channel = Get-Content "RELEASE_CHANNEL"
 $env:ZED_RELEASE_CHANNEL = $channel
 $env:RELEASE_CHANNEL = $channel
 Pop-Location
 
 if ([string]::IsNullOrWhiteSpace($env:RELEASE_VERSION)) {
-    $cargoToml = Get-Content "$workspace\crates\wu\Cargo.toml"
+    $cargoToml = Get-Content "$workspace\crates\yo\Cargo.toml"
     $env:RELEASE_VERSION = ($cargoToml | Select-String -Pattern '^version = "(.*)"' | Select-Object -First 1).Matches.Groups[1].Value
 }
 
@@ -76,7 +76,7 @@ function PrepareForBundle {
         Remove-Item -Path "$innoDir" -Recurse -Force
     }
     New-Item -Path "$innoDir" -ItemType Directory -Force
-    Copy-Item -Path "$workspace\crates\wu\resources\windows\*" -Destination "$innoDir" -Recurse -Force
+    Copy-Item -Path "$workspace\crates\yo\resources\windows\*" -Destination "$innoDir" -Recurse -Force
     New-Item -Path "$innoDir\make_appx" -ItemType Directory -Force
     New-Item -Path "$innoDir\appx" -ItemType Directory -Force
     New-Item -Path "$innoDir\bin" -ItemType Directory -Force
@@ -89,10 +89,10 @@ function GenerateLicenses {
     . $PSScriptRoot/generate-licenses.ps1
 }
 
-function BuildWuAndItsFriends {
-    Write-Output "Building Wu and its friends, for channel: $channel"
-    cargo build --release --package wu --package cli --package auto_update_helper --target $target
-    Copy-Item -Path ".\$CargoOutDir\wu.exe" -Destination "$innoDir\Wu.exe" -Force
+function BuildYoAndItsFriends {
+    Write-Output "Building Yo and its friends, for channel: $channel"
+    cargo build --release --package yo --package cli --package auto_update_helper --target $target
+    Copy-Item -Path ".\$CargoOutDir\yo.exe" -Destination "$innoDir\Yo.exe" -Force
     Copy-Item -Path ".\$CargoOutDir\cli.exe" -Destination "$innoDir\cli.exe" -Force
     Copy-Item -Path ".\$CargoOutDir\auto_update_helper.exe" -Destination "$innoDir\auto_update_helper.exe" -Force
     switch ($channel) {
@@ -111,7 +111,7 @@ function BuildRemoteServer {
     cargo build --release --package remote_server --target $target
 
     $remoteServerSrc = (Resolve-Path ".\$CargoOutDir\remote_server.exe").Path
-    $remoteServerDst = "$workspace\target\wu-remote-server-windows-$Architecture.gz"
+    $remoteServerDst = "$workspace\target\yo-remote-server-windows-$Architecture.gz"
     Write-Output "Compressing remote_server to $remoteServerDst"
 
     $input = [System.IO.File]::OpenRead($remoteServerSrc)
@@ -154,8 +154,8 @@ function DownloadConpty {
 function CollectFiles {
     Move-Item -Path "$innoDir\zed_explorer_command_injector.appx" -Destination "$innoDir\appx\zed_explorer_command_injector.appx" -Force
     Move-Item -Path "$innoDir\zed_explorer_command_injector.dll" -Destination "$innoDir\appx\zed_explorer_command_injector.dll" -Force
-    Move-Item -Path "$innoDir\cli.exe" -Destination "$innoDir\bin\wu.exe" -Force
-    Move-Item -Path "$innoDir\zed.sh" -Destination "$innoDir\bin\wu" -Force
+    Move-Item -Path "$innoDir\cli.exe" -Destination "$innoDir\bin\yo.exe" -Force
+    Move-Item -Path "$innoDir\zed.sh" -Destination "$innoDir\bin\yo" -Force
     Move-Item -Path "$innoDir\auto_update_helper.exe" -Destination "$innoDir\tools\auto_update_helper.exe" -Force
     if($Architecture -eq "aarch64") {
         New-Item -Type Directory -Path "$innoDir\arm64" -Force
@@ -178,30 +178,32 @@ function BuildInstaller {
         "stable" {
             $appId = "{{2DB0DA96-CA55-49BB-AF4F-64AF36A86712}"
             $appIconName = "app-icon"
-            $appName = "Wu"
-            $appDisplayName = "Wu"
-            $appSetupName = "Wu-$Architecture"
+            $appName = "Yo"
+            $appInstallDirName = "Yo"
+            $appDisplayName = "Yo"
+            $appSetupName = "Yo-$Architecture"
             # Must match `app_identifier()` in crates/release_channel/src/lib.rs plus the "-Instance-Mutex" suffix
-            # used by crates/wu/src/wu/windows_only_instance.rs.
-            $appMutex = "Wu-Editor-Stable-Instance-Mutex"
-            $appExeName = "Wu"
-            $regValueName = "Wu"
-            $appUserId = "Farshed.Wu"
-            $appShellNameShort = "W&u"
-            $appAppxFullName = "Farshed.Wu_1.0.0.0_neutral__japxn1gcva8rg"
+            # used by crates/yo/src/yo/windows_only_instance.rs.
+            $appMutex = "Yo-Editor-Stable-Instance-Mutex"
+            $appExeName = "Yo"
+            $regValueName = "Yo"
+            $appUserId = "Farshed.Yo"
+            $appShellNameShort = "Y&o"
+            $appAppxFullName = "Farshed.Yo_1.0.0.0_neutral__japxn1gcva8rg"
         }
         "dev" {
             $appId = "{{8357632E-24A4-4F32-BA97-E575B4D1FE5D}"
             $appIconName = "app-icon-dev"
-            $appName = "Wu Dev"
-            $appDisplayName = "Wu Dev"
-            $appSetupName = "Wu-$Architecture"
-            $appMutex = "Wu-Editor-Dev-Instance-Mutex"
-            $appExeName = "Wu"
-            $regValueName = "WuDev"
-            $appUserId = "Farshed.Wu.Dev"
-            $appShellNameShort = "W&u Dev"
-            $appAppxFullName = "Farshed.Wu_1.0.0.0_neutral__japxn1gcva8rg"
+            $appName = "Yo Dev"
+            $appInstallDirName = "Yo Dev"
+            $appDisplayName = "Yo Dev"
+            $appSetupName = "Yo-$Architecture"
+            $appMutex = "Yo-Editor-Dev-Instance-Mutex"
+            $appExeName = "Yo"
+            $regValueName = "YoDev"
+            $appUserId = "Farshed.Yo.Dev"
+            $appShellNameShort = "Y&o Dev"
+            $appAppxFullName = "Farshed.Yo_1.0.0.0_neutral__japxn1gcva8rg"
         }
         default {
             Write-Error "can't bundle installer for $channel."
@@ -218,6 +220,7 @@ function BuildInstaller {
         "OutputDir"      = "$workspace\target"
         "AppSetupName"   = $appSetupName
         "AppName"        = $appName
+        "AppInstallDirName" = $appInstallDirName
         "AppDisplayName" = $appDisplayName
         "RegValueName"   = $regValueName
         "AppMutex"       = $appMutex
@@ -256,7 +259,7 @@ function BuildInstaller {
 Push-Location $workspace
 PrepareForBundle
 GenerateLicenses
-BuildWuAndItsFriends
+BuildYoAndItsFriends
 BuildRemoteServer
 MakeAppx
 DownloadAMDGpuServices
@@ -268,8 +271,8 @@ Pop-Location
 if ($buildSuccess) {
     Write-Output "Build successful"
     if ($Install) {
-        Write-Output "Installing Wu..."
-        Start-Process -FilePath "$workspace/target/Wu-$Architecture.exe"
+        Write-Output "Installing Yo..."
+        Start-Process -FilePath "$workspace/target/Yo-$Architecture.exe"
     }
     exit 0
 }

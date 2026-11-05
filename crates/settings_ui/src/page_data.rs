@@ -75,7 +75,7 @@ fn developer_page() -> SettingsPage {
     items.push(SettingsPageItem::SettingItem(SettingItem {
         title: n!("Performance Profiler"),
         description: n!(
-            "Collect timing data for foreground and background executor tasks so they can be inspected via `wu: open performance profiler`. May lead to increased memory usage."
+            "Collect timing data for foreground and background executor tasks so they can be inspected via `yo: open performance profiler`. May lead to increased memory usage."
         ),
         field: Box::new(SettingField {
             json_path: Some("instrumentation.performance_profiler.enabled"),
@@ -112,7 +112,7 @@ fn general_page(cx: &App) -> SettingsPage {
             SettingsPageItem::SettingItem(SettingItem {
                 title: n!("Accessible Mode"),
                 description: n!(
-                    "Optimize Wu's interface for assistive technology such as screen readers. When enabled, otherwise-collapsed controls stay expanded and keyboard-reachable."
+                    "Optimize Yo's interface for assistive technology such as screen readers. When enabled, otherwise-collapsed controls stay expanded and keyboard-reachable."
                 ),
                 field: Box::new(SettingField {
                     json_path: Some("accessible_mode"),
@@ -222,7 +222,7 @@ fn general_page(cx: &App) -> SettingsPage {
             }),
             SettingsPageItem::SettingItem(SettingItem {
                 title: n!("CLI Default Open Behavior"),
-                description: n!("How `wu <path>` opens directories when no flag is specified."),
+                description: n!("How `yo <path>` opens directories when no flag is specified."),
                 field: Box::new(SettingField {
                     json_path: Some("cli_default_open_behavior"),
                     pick: |settings_content| {
@@ -243,7 +243,7 @@ fn general_page(cx: &App) -> SettingsPage {
             }),
             SettingsPageItem::SettingItem(SettingItem {
                 title: n!("Reveal If Open"),
-                description: n!("When enabled, Wu will prefer already-open buffers."),
+                description: n!("When enabled, Yo will prefer already-open buffers."),
                 field: Box::new(SettingField {
                     json_path: Some("reveal_if_open"),
                     pick: |settings_content| settings_content.workspace.reveal_if_open.as_ref(),
@@ -280,7 +280,7 @@ fn general_page(cx: &App) -> SettingsPage {
             SettingsPageItem::SettingItem(SettingItem {
                 title: n!("Trust All Projects By Default"),
                 description: n!(
-                    "When opening Wu, avoid Restricted Mode by auto-trusting all projects, enabling use of all features without having to give permission to each new project."
+                    "When opening Yo, avoid Restricted Mode by auto-trusting all projects, enabling use of all features without having to give permission to each new project."
                 ),
                 field: Box::new(SettingField {
                     json_path: Some("session.trust_all_projects"),
@@ -329,7 +329,7 @@ fn general_page(cx: &App) -> SettingsPage {
             }),
             SettingsPageItem::SettingItem(SettingItem {
                 title: n!("Restore On Startup"),
-                description: n!("What to restore from the previous session when opening Wu."),
+                description: n!("What to restore from the previous session when opening Yo."),
                 field: Box::new(SettingField {
                     json_path: Some("restore_on_startup"),
                     pick: |settings_content| settings_content.workspace.restore_on_startup.as_ref(),
@@ -405,7 +405,7 @@ fn appearance_page() -> SettingsPage {
             SettingsPageItem::SettingItem(SettingItem {
                 title: n!("Interface Language"),
                 description: n!(
-                    "The language of Wu's menus, panels and settings. Some parts update after you reopen them or restart Wu."
+                    "The language of Yo's menus, panels and settings. Some parts update after you reopen them or restart Yo."
                 ),
                 field: Box::new(SettingField {
                     json_path: Some("ui_language"),
@@ -613,7 +613,7 @@ fn appearance_page() -> SettingsPage {
                     files: USER,
                     title: n!("Icon Theme"),
                     description: n!(
-                        "The custom set of icons Wu will associate with files and directories."
+                        "The custom set of icons Yo will associate with files and directories."
                     ),
                     field: Box::new(SettingField {
                             json_path: Some("icon_theme$"),
@@ -1382,7 +1382,7 @@ fn keymap_page() -> SettingsPage {
                     original_window
                         .update(cx, |_workspace, original_window, cx| {
                             original_window
-                                .dispatch_action(wu_actions::OpenKeymap.boxed_clone(), cx);
+                                .dispatch_action(app_actions::OpenKeymap.boxed_clone(), cx);
                             original_window.activate_window();
                         })
                         .ok();
@@ -3261,7 +3261,7 @@ fn search_and_files_page() -> SettingsPage {
             SettingsPageItem::SettingItem(SettingItem {
                 title: n!("File Scan Exclusions"),
                 description: n!(
-                    "Files or globs of files that will be excluded by Wu entirely. They will be skipped during file scans, file searches, and not be displayed in the project file tree. Takes precedence over \"File Scan Inclusions\""
+                    "Files or globs of files that will be excluded by Yo entirely. They will be skipped during file scans, file searches, and not be displayed in the project file tree. Takes precedence over \"File Scan Inclusions\""
                 ),
                 field: Box::new(
                     SettingField {
@@ -3285,7 +3285,7 @@ fn search_and_files_page() -> SettingsPage {
             SettingsPageItem::SettingItem(SettingItem {
                 title: n!("File Scan Inclusions"),
                 description: n!(
-                    "Files or globs of files that will be included by Wu, even when ignored by git. This is useful for files that are not tracked by git, but are still important to your project. Note that globs that are overly broad can slow down Wu's file scanning. \"File Scan Exclusions\" takes precedence over these inclusions"
+                    "Files or globs of files that will be included by Yo, even when ignored by git. This is useful for files that are not tracked by git, but are still important to your project. Note that globs that are overly broad can slow down Yo's file scanning. \"File Scan Exclusions\" takes precedence over these inclusions"
                 ),
                 field: Box::new(
                     SettingField {
@@ -4384,7 +4384,7 @@ fn window_and_layout_page() -> SettingsPage {
             SettingsPageItem::SettingItem(SettingItem {
                 title: n!("Window Decorations"),
                 description: n!(
-                    "(Linux only) whether Wu or your compositor should draw window decorations."
+                    "(Linux only) whether Yo or your compositor should draw window decorations."
                 ),
                 field: Box::new(SettingField {
                     json_path: Some("window_decorations"),
@@ -5944,7 +5944,7 @@ fn debugger_page() -> SettingsPage {
             }),
             SettingsPageItem::SettingItem(SettingItem {
                 title: n!("Save Breakpoints"),
-                description: n!("Whether breakpoints should be reused across Wu sessions."),
+                description: n!("Whether breakpoints should be reused across Yo sessions."),
                 field: Box::new(SettingField {
                     json_path: Some("debugger.save_breakpoints"),
                     pick: |settings_content| {
@@ -5981,7 +5981,7 @@ fn debugger_page() -> SettingsPage {
             }),
             SettingsPageItem::SettingItem(SettingItem {
                 title: n!("Log DAP Communications"),
-                description: n!("Whether to log messages between active debug adapters and Wu."),
+                description: n!("Whether to log messages between active debug adapters and Yo."),
                 field: Box::new(SettingField {
                     json_path: Some("debugger.log_dap_communications"),
                     pick: |settings_content| {
@@ -6929,7 +6929,7 @@ fn version_control_page() -> SettingsPage {
                 discriminant: SettingItem {
                     files: USER,
                     title: n!("Disable Git Integration"),
-                    description: n!("Disable all Git integration features in Wu."),
+                    description: n!("Disable all Git integration features in Yo."),
                     field: Box::new(SettingField::<bool> {
                         json_path: Some("git.disable_git"),
                         pick: |settings_content| {
@@ -7434,7 +7434,7 @@ fn agent_chat_page() -> SettingsPage {
             SettingsPageItem::SettingItem(SettingItem {
                 title: n!("Enable Agent Chat"),
                 description: n!(
-                    "Show the agent panel and its commands. When off, Wu hides everything agent-related."
+                    "Show the agent panel and its commands. When off, Yo hides everything agent-related."
                 ),
                 field: Box::new(SettingField {
                     json_path: Some("agent_chat.enabled"),
@@ -7550,7 +7550,7 @@ fn agent_chat_page() -> SettingsPage {
             SettingsPageItem::SettingItem(SettingItem {
                 title: n!("Ask Before Quitting"),
                 description: n!(
-                    "Ask before quitting or restarting Wu while an agent is working, since that stops it."
+                    "Ask before quitting or restarting Yo while an agent is working, since that stops it."
                 ),
                 field: Box::new(SettingField {
                     json_path: Some("agent_chat.confirm_quit_while_working"),
@@ -7626,7 +7626,7 @@ fn agent_chat_page() -> SettingsPage {
                 title: n!("Desktop Notifications"),
                 description: if cfg!(target_os = "macos") {
                     n!(
-                        "Show a notification when an agent finishes, needs input or fails. Allow Wu to send notifications in System Settings for this to work."
+                        "Show a notification when an agent finishes, needs input or fails. Allow Yo to send notifications in System Settings for this to work."
                     )
                 } else {
                     n!("Show a notification when an agent finishes, needs input or fails.")
@@ -7648,7 +7648,7 @@ fn agent_chat_page() -> SettingsPage {
             }),
             SettingsPageItem::SettingItem(SettingItem {
                 title: n!("Only In Background"),
-                description: n!("Only notify when Wu is not the active app."),
+                description: n!("Only notify when Yo is not the active app."),
                 field: Box::new(SettingField {
                     json_path: Some("agent_chat.notify_only_in_background"),
                     pick: |settings_content| {
@@ -8578,7 +8578,7 @@ pub(crate) fn language_settings_data() -> Box<[SettingsPageItem]> {
             SettingsPageItem::SettingItem(SettingItem {
                 title: n!("Use Autoclose"),
                 description: n!(
-                    "Whether to automatically type closing characters for you. For example, when you type '(', Wu will automatically add a closing ')' at the correct position."
+                    "Whether to automatically type closing characters for you. For example, when you type '(', Yo will automatically add a closing ')' at the correct position."
                 ),
                 field: Box::new(SettingField {
                     json_path: Some("languages.$(language).use_autoclose"),
@@ -8599,7 +8599,7 @@ pub(crate) fn language_settings_data() -> Box<[SettingsPageItem]> {
             SettingsPageItem::SettingItem(SettingItem {
                 title: n!("Use Auto Surround"),
                 description: n!(
-                    "Whether to automatically surround text with characters for you. For example, when you select text and type '(', Wu will automatically surround text with ()."
+                    "Whether to automatically surround text with characters for you. For example, when you select text and type '(', Yo will automatically surround text with ()."
                 ),
                 field: Box::new(SettingField {
                     json_path: Some("languages.$(language).use_auto_surround"),
@@ -9146,7 +9146,7 @@ pub(crate) fn language_settings_data() -> Box<[SettingsPageItem]> {
             }),
             SettingsPageItem::SettingItem(SettingItem {
                 title: n!("Prefer LSP"),
-                description: n!("Use LSP tasks over Wu language extension tasks."),
+                description: n!("Use LSP tasks over Yo language extension tasks."),
                 field: Box::new(SettingField {
                     json_path: Some("languages.$(language).tasks.prefer_lsp"),
                     pick: |settings_content| {

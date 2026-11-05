@@ -44,7 +44,7 @@ use workspace::{
     AppState, MultiWorkspace, OpenOptions, OpenVisible, Workspace, WorkspaceSettings,
     client_side_decorations,
 };
-use wu_actions::{
+use app_actions::{
     OpenProjectSettings, OpenSettings, OpenSettingsAt, OpenSettingsAtTarget, OpenSettingsPage,
 };
 
@@ -827,7 +827,7 @@ fn open_settings_editor_with(
         cx.open_window(
             WindowOptions {
                 titlebar: Some(TitlebarOptions {
-                    title: Some(t!("Wu \u{2014} Settings")),
+                    title: Some(t!("Yo \u{2014} Settings")),
                     appears_transparent: true,
                     traffic_light_position: Some(point(px(12.0), px(12.0))),
                 }),
@@ -1612,7 +1612,7 @@ fn render_settings_item_link(
                 .tooltip(Tooltip::text(t!("Copy Link")))
                 .when_some(json_path, |this, path| {
                     this.on_click(cx.listener(move |this, _, _, cx| {
-                        let link = format!("wu://settings/{}", path);
+                        let link = format!("yo://settings/{}", path);
                         cx.write_to_clipboard(ClipboardItem::new_string(link));
                         this.last_copied_link_path = Some(path);
                         cx.notify();
@@ -1761,7 +1761,7 @@ fn all_language_names(cx: &App) -> Vec<SharedString> {
         .languages
         .language_names()
         .into_iter()
-        .filter(|name| name.as_ref() != "Wu Keybind Context")
+        .filter(|name| name.as_ref() != "Yo Keybind Context")
         .map(Into::into)
         .collect()
 }
@@ -4514,7 +4514,7 @@ impl ProjectSettingsUpdateQueue {
     }
 }
 
-/// Uses `.wu/settings.json`, falling back to an existing `.zed/settings.json`.
+/// Uses `.yo/settings.json`, falling back to an existing `.zed/settings.json`.
 fn project_settings_file_path(
     worktree_id: WorktreeId,
     project_dir: &RelPath,
@@ -6167,7 +6167,7 @@ mod translation_tests {
         "Sublime Text",
         "TextMate",
         "VSCode",
-        "Wu",
+        "Yo",
         "简体中文",
     ];
 

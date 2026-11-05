@@ -303,7 +303,7 @@ pub struct ExtensionIndexLanguageEntry {
 }
 
 actions!(
-    wu,
+    yo,
     [
         /// Reloads all installed extensions.
         ReloadExtensions

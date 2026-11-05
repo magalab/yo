@@ -16,10 +16,12 @@ use crate::{
     NewlineBelow, PageDown, PageUp, Point, RowExt, RowRangeExt, Selection,
     SelectionDragState, SizingBehavior, SoftWrap, ToPoint,
     actions::{
-        Copy as EditorCopy, Cut, MoveToBeginningOfLine, Paste, SelectRight, VimAppendMode,
+        Copy as EditorCopy, Cut, Delete, DeleteLine, DeleteToEndOfLine, MoveToBeginningOfLine,
+        MoveToEndOfLine, Paste, SelectRight, VimAppendLineEnd, VimChangeLine,
+        VimChangeToLineEnd, VimDeleteToLineEnd, VimInsertLineStart, VimAppendMode,
         VimPasteAfter, VimPasteBefore, VimReplacePending,
         VimDeleteSelection, VimInsertMode, VimNormalMode, VimOpenLineAbove, VimOpenLineBelow,
-        VimVisualMode, VimYankLine, VimYankSelection,
+        VimSubstituteCharacter, VimVisualLineMode, VimVisualMode, VimYankLine, VimYankSelection,
     },
     code_context_menus::{CodeActionsMenu, MENU_ASIDE_MAX_WIDTH, MENU_ASIDE_MIN_WIDTH, MENU_GAP},
     column_pixels,
@@ -308,6 +310,7 @@ impl EditorElement {
                     }
                     super::LightweightVimMode::Visual => {
                         editor.change_selections(Default::default(), window, cx, |selections| {
+                            selections.set_line_mode(false);
                             selections.move_with(&mut |_, selection| {
                                 selection.collapse_to(selection.head(), Default::default());
                             });
@@ -322,6 +325,60 @@ impl EditorElement {
         register_action(editor, window, |editor, _: &VimAppendMode, window, cx| {
             if EditorSettings::get_global(cx).vim_mode {
                 editor.move_right(&MoveRight, window, cx);
+                editor.set_lightweight_vim_mode(super::LightweightVimMode::Insert);
+                cx.notify();
+            }
+        });
+        register_action(editor, window, |editor, _: &VimInsertLineStart, window, cx| {
+            if EditorSettings::get_global(cx).vim_mode {
+                editor.move_to_beginning_of_line(
+                    &MoveToBeginningOfLine {
+                        stop_at_soft_wraps: false,
+                        stop_at_indent: true,
+                    },
+                    window,
+                    cx,
+                );
+                editor.set_lightweight_vim_mode(super::LightweightVimMode::Insert);
+                cx.notify();
+            }
+        });
+        register_action(editor, window, |editor, _: &VimAppendLineEnd, window, cx| {
+            if EditorSettings::get_global(cx).vim_mode {
+                editor.move_to_end_of_line(
+                    &MoveToEndOfLine {
+                        stop_at_soft_wraps: false,
+                    },
+                    window,
+                    cx,
+                );
+                editor.set_lightweight_vim_mode(super::LightweightVimMode::Insert);
+                cx.notify();
+            }
+        });
+        register_action(editor, window, |editor, _: &VimDeleteToLineEnd, window, cx| {
+            if EditorSettings::get_global(cx).vim_mode {
+                editor.delete_to_end_of_line(&DeleteToEndOfLine, window, cx);
+                cx.notify();
+            }
+        });
+        register_action(editor, window, |editor, _: &VimChangeToLineEnd, window, cx| {
+            if EditorSettings::get_global(cx).vim_mode {
+                editor.delete_to_end_of_line(&DeleteToEndOfLine, window, cx);
+                editor.set_lightweight_vim_mode(super::LightweightVimMode::Insert);
+                cx.notify();
+            }
+        });
+        register_action(editor, window, |editor, _: &VimSubstituteCharacter, window, cx| {
+            if EditorSettings::get_global(cx).vim_mode {
+                editor.delete(&Delete, window, cx);
+                editor.set_lightweight_vim_mode(super::LightweightVimMode::Insert);
+                cx.notify();
+            }
+        });
+        register_action(editor, window, |editor, _: &VimChangeLine, window, cx| {
+            if EditorSettings::get_global(cx).vim_mode {
+                editor.delete_line(&DeleteLine, window, cx);
                 editor.set_lightweight_vim_mode(super::LightweightVimMode::Insert);
                 cx.notify();
             }
@@ -360,6 +417,14 @@ impl EditorElement {
         });
         register_action(editor, window, |editor, _: &VimVisualMode, _window, cx| {
             if EditorSettings::get_global(cx).vim_mode {
+                editor.selections.set_line_mode(false);
+                editor.set_lightweight_vim_mode(super::LightweightVimMode::Visual);
+                cx.notify();
+            }
+        });
+        register_action(editor, window, |editor, _: &VimVisualLineMode, _window, cx| {
+            if EditorSettings::get_global(cx).vim_mode {
+                editor.selections.set_line_mode(true);
                 editor.set_lightweight_vim_mode(super::LightweightVimMode::Visual);
                 cx.notify();
             }
@@ -371,6 +436,7 @@ impl EditorElement {
                 if EditorSettings::get_global(cx).vim_mode {
                     editor.copy(&EditorCopy, window, cx);
                     editor.change_selections(Default::default(), window, cx, |selections| {
+                        selections.set_line_mode(false);
                         selections.move_with(&mut |_, selection| {
                             selection.collapse_to(selection.head(), Default::default());
                         });
@@ -386,6 +452,7 @@ impl EditorElement {
             |editor, _: &VimDeleteSelection, window, cx| {
                 if EditorSettings::get_global(cx).vim_mode {
                     editor.cut(&Cut, window, cx);
+                    editor.selections.set_line_mode(false);
                     editor.set_lightweight_vim_mode(super::LightweightVimMode::Normal);
                     cx.notify();
                 }
@@ -6903,7 +6970,7 @@ pub fn render_breadcrumb_text(
                                         .justify_between()
                                         .child(Label::new(t!("Show Symbol Outline")))
                                         .child(ui::KeyBinding::for_action_in(
-                                            &wu_actions::outline::ToggleOutline,
+                                            &app_actions::outline::ToggleOutline,
                                             &focus_handle,
                                             cx,
                                         )),
@@ -6926,7 +6993,7 @@ pub fn render_breadcrumb_text(
                             move |_, window, cx| {
                                 if let Some((editor, callback)) = editor
                                     .upgrade()
-                                    .zip(wu_actions::outline::TOGGLE_OUTLINE.get())
+                                    .zip(app_actions::outline::TOGGLE_OUTLINE.get())
                                 {
                                     callback(editor.to_any_view(), window, cx);
                                 }

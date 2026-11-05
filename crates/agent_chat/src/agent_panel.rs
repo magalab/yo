@@ -321,7 +321,7 @@ impl AgentPanel {
             PromptLevel::Warning,
             &t!("Delete \"{title}\"?", title = title),
             Some(&t!(
-                "The chat and its history are removed from Wu. This can't be undone."
+                "The chat and its history are removed from Yo. This can't be undone."
             )),
             &[
                 PromptButton::new(t!("Delete")),

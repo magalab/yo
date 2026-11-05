@@ -1,17 +1,17 @@
 #!/usr/bin/env sh
 set -eu
 
-# Downloads a Wu release from GitHub and unpacks it into ~/.local/.
-# Optional: WU_VERSION=1.2.3 picks a release, WU_BUNDLE_PATH installs a local tarball.
+# Downloads a Yo release from GitHub and unpacks it into ~/.local/.
+# Optional: YO_VERSION=1.2.3 picks a release, YO_BUNDLE_PATH installs a local tarball.
 # The ZED_ names of these variables still work for older instructions.
 
 main() {
     platform="$(uname -s)"
     arch="$(uname -m)"
-    channel="${WU_CHANNEL:-${ZED_CHANNEL:-stable}}"
-    repo="dstrml/wu"
-    version="${WU_VERSION:-${ZED_VERSION:-latest}}"
-    bundle_path="${WU_BUNDLE_PATH:-${ZED_BUNDLE_PATH:-}}"
+    channel="${YO_CHANNEL:-${ZED_CHANNEL:-stable}}"
+    repo="magalab/yo"
+    version="${YO_VERSION:-${ZED_VERSION:-latest}}"
+    bundle_path="${YO_BUNDLE_PATH:-${ZED_BUNDLE_PATH:-}}"
     if [ "$version" = "latest" ]; then
         download_base="https://github.com/$repo/releases/latest/download"
     else
@@ -19,9 +19,9 @@ main() {
     fi
     # Use TMPDIR if available (for environments with non-standard temp directories)
     if [ -n "${TMPDIR:-}" ] && [ -d "${TMPDIR}" ]; then
-        temp="$(mktemp -d "$TMPDIR/wu-XXXXXX")"
+        temp="$(mktemp -d "$TMPDIR/yo-XXXXXX")"
     else
-        temp="$(mktemp -d "/tmp/wu-XXXXXX")"
+        temp="$(mktemp -d "/tmp/yo-XXXXXX")"
     fi
 
     if [ "$platform" = "Darwin" ]; then
@@ -61,10 +61,10 @@ main() {
 
     "$platform" "$@"
 
-    if [ "$(command -v wu)" = "$HOME/.local/bin/wu" ]; then
-        echo "Wu has been installed. Run with 'wu'"
+    if [ "$(command -v yo)" = "$HOME/.local/bin/yo" ]; then
+        echo "Yo has been installed. Run with 'yo'"
     else
-        echo "To run Wu from your terminal, you must add ~/.local/bin to your PATH"
+        echo "To run Yo from your terminal, you must add ~/.local/bin to your PATH"
         echo "Run:"
 
         case "$SHELL" in
@@ -81,16 +81,16 @@ main() {
                 ;;
         esac
 
-        echo "To run Wu now, '~/.local/bin/wu'"
+        echo "To run Yo now, '~/.local/bin/yo'"
     fi
 }
 
 linux() {
     if [ -n "$bundle_path" ]; then
-        cp "$bundle_path" "$temp/wu-linux-$arch.tar.gz"
+        cp "$bundle_path" "$temp/yo-linux-$arch.tar.gz"
     else
-        echo "Downloading Wu version: $version"
-        curl "$download_base/wu-linux-$arch.tar.gz" > "$temp/wu-linux-$arch.tar.gz"
+        echo "Downloading Yo version: $version"
+        curl "$download_base/yo-linux-$arch.tar.gz" > "$temp/yo-linux-$arch.tar.gz"
     fi
 
     suffix=""
@@ -101,29 +101,29 @@ linux() {
     appid=""
     case "$channel" in
       stable)
-        appid="me.farshed.Wu"
+        appid="me.farshed.Yo"
         ;;
       dev)
-        appid="me.farshed.Wu-Dev"
+        appid="me.farshed.Yo-Dev"
         ;;
       *)
         echo "Unknown release channel: ${channel}. Using stable app ID."
-        appid="me.farshed.Wu"
+        appid="me.farshed.Yo"
         ;;
     esac
 
     # Unpack
-    rm -rf "$HOME/.local/wu$suffix.app"
-    mkdir -p "$HOME/.local/wu$suffix.app"
-    tar -xzf "$temp/wu-linux-$arch.tar.gz" -C "$HOME/.local/"
+    rm -rf "$HOME/.local/yo$suffix.app"
+    mkdir -p "$HOME/.local/yo$suffix.app"
+    tar -xzf "$temp/yo-linux-$arch.tar.gz" -C "$HOME/.local/"
 
-    wu_editor="$HOME/.local/wu$suffix.app/libexec/wu-editor"
-    if [ -f "$wu_editor" ] && command -v ldd >/dev/null 2>&1; then
-        missing="$(ldd "$wu_editor" 2>/dev/null | sed -n 's/^[[:space:]]*\(.*\) => not found$/\1/p')"
+    yo_editor="$HOME/.local/yo$suffix.app/libexec/yo-editor"
+    if [ -f "$yo_editor" ] && command -v ldd >/dev/null 2>&1; then
+        missing="$(ldd "$yo_editor" 2>/dev/null | sed -n 's/^[[:space:]]*\(.*\) => not found$/\1/p')"
         if [ -n "$missing" ]; then
-            echo "Warning: your system is missing libraries that Wu needs:"
+            echo "Warning: your system is missing libraries that Yo needs:"
             echo "$missing" | sed 's/^/    /'
-            echo "Install them with your package manager, or Wu will fail to start."
+            echo "Install them with your package manager, or Yo will fail to start."
         fi
     fi
 
@@ -131,20 +131,20 @@ linux() {
     mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications"
 
     # Link the binary
-    ln -sf "$HOME/.local/wu$suffix.app/bin/wu" "$HOME/.local/bin/wu"
+    ln -sf "$HOME/.local/yo$suffix.app/bin/yo" "$HOME/.local/bin/yo"
 
     # Copy .desktop file
     desktop_file_path="$HOME/.local/share/applications/${appid}.desktop"
-    src_dir="$HOME/.local/wu$suffix.app/share/applications"
+    src_dir="$HOME/.local/yo$suffix.app/share/applications"
     cp "$src_dir/${appid}.desktop" "${desktop_file_path}"
-    sed -i "s|Icon=wu|Icon=$HOME/.local/wu$suffix.app/share/icons/hicolor/512x512/apps/wu.png|g" "${desktop_file_path}"
-    sed -i "s|Exec=wu|Exec=$HOME/.local/wu$suffix.app/bin/wu|g" "${desktop_file_path}"
+    sed -i "s|Icon=yo|Icon=$HOME/.local/yo$suffix.app/share/icons/hicolor/512x512/apps/yo.png|g" "${desktop_file_path}"
+    sed -i "s|Exec=yo|Exec=$HOME/.local/yo$suffix.app/bin/yo|g" "${desktop_file_path}"
 }
 
 macos() {
-    echo "Downloading Wu version: $version"
-    curl "$download_base/Wu-$arch.dmg" > "$temp/Wu-$arch.dmg"
-    hdiutil attach -quiet "$temp/Wu-$arch.dmg" -mountpoint "$temp/mount"
+    echo "Downloading Yo version: $version"
+    curl "$download_base/Yo-$arch.dmg" > "$temp/Yo-$arch.dmg"
+    hdiutil attach -quiet "$temp/Yo-$arch.dmg" -mountpoint "$temp/mount"
     app="$(cd "$temp/mount/"; echo *.app)"
     echo "Installing $app"
     if [ -d "/Applications/$app" ]; then
@@ -156,7 +156,7 @@ macos() {
 
     mkdir -p "$HOME/.local/bin"
     # Link the binary
-    ln -sf "/Applications/$app/Contents/MacOS/cli" "$HOME/.local/bin/wu"
+    ln -sf "/Applications/$app/Contents/MacOS/cli" "$HOME/.local/bin/yo"
 }
 
 main "$@"

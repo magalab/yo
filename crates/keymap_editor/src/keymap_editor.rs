@@ -46,7 +46,7 @@ use workspace::{
 };
 
 pub use ui_components::*;
-use wu_actions::{ChangeKeybinding, OpenKeymap};
+use app_actions::{ChangeKeybinding, OpenKeymap};
 
 use crate::{
     action_completion_provider::ActionCompletionProvider,
@@ -2053,12 +2053,12 @@ impl Render for KeymapEditor {
                                     .child(
                                         Button::new("edit-in-json", t!("Edit in JSON"))
                                             .key_binding(
-                                                ui::KeyBinding::for_action_in(&wu_actions::OpenKeymapFile, &focus_handle, cx)
+                                                ui::KeyBinding::for_action_in(&app_actions::OpenKeymapFile, &focus_handle, cx)
                                                     .map(|kb| kb.size(rems_from_px(10_f32))),
                                             )
                                             .on_click(|_, window, cx| {
                                                 window.dispatch_action(
-                                                    wu_actions::OpenKeymapFile.boxed_clone(),
+                                                    app_actions::OpenKeymapFile.boxed_clone(),
                                                     cx,
                                                 );
                                             })
@@ -3581,21 +3581,21 @@ async fn load_keybind_context_language(
                 .project()
                 .read(cx)
                 .languages()
-                .language_for_name("Wu Keybind Context")
+                .language_for_name("Yo Keybind Context")
         })
-        .context("Failed to load Wu Keybind Context language")
+        .context("Failed to load Yo Keybind Context language")
         .log_err();
     let language = match language_task {
         Some(task) => task
             .await
-            .context("Failed to load Wu Keybind Context language")
+            .context("Failed to load Yo Keybind Context language")
             .log_err(),
         None => None,
     };
     language.unwrap_or_else(|| {
         Arc::new(Language::new(
             LanguageConfig {
-                name: "Wu Keybind Context".into(),
+                name: "Yo Keybind Context".into(),
                 ..Default::default()
             },
             Some(tree_sitter_rust::LANGUAGE.into()),
@@ -4171,12 +4171,12 @@ mod tests {
         let keymap_content = r#"[
     {
         "bindings": {
-            "alt-cmd-shift-c": "wu::OpenKeymap"
+            "alt-cmd-shift-c": "yo::OpenKeymap"
         }
     },
     {
         "bindings": {
-            "alt-cmd-shift-c": "wu::OpenKeymap"
+            "alt-cmd-shift-c": "yo::OpenKeymap"
         }
     }
 ]"#;
@@ -4184,7 +4184,7 @@ mod tests {
         let cx = &mut cx;
 
         let rows = keymap_editor.read_with(cx, |editor, _| {
-            visible_rows_for_action(editor, "wu::OpenKeymap")
+            visible_rows_for_action(editor, "yo::OpenKeymap")
         });
         assert_eq!(
             rows.len(),
@@ -4210,7 +4210,7 @@ mod tests {
         cx.run_until_parked();
 
         let rows = keymap_editor.read_with(cx, |editor, _| {
-            visible_rows_for_action(editor, "wu::OpenKeymap")
+            visible_rows_for_action(editor, "yo::OpenKeymap")
         });
         assert_eq!(rows.len(), 1, "expected one row remaining after deletion");
     }
@@ -4438,7 +4438,7 @@ mod tests {
 
     #[test]
     fn binding_is_unbound_by_unbind_respects_precedence() {
-        let binding = gpui::KeyBinding::new("tab", wu_actions::OpenKeymap, None);
+        let binding = gpui::KeyBinding::new("tab", app_actions::OpenKeymap, None);
         let unbind =
             gpui::KeyBinding::new("tab", gpui::Unbind(binding.action().name().into()), None);
 

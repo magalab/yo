@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMessages } from '../i18n/locale';
 import { mediaFrame } from './Section';
-import { AssistantText, Icon, StepRow, UsageRing, accent, claude, muted, placeholder, stepsSummary, text } from './WuWindow';
+import { AssistantText, Icon, StepRow, UsageRing, accent, claude, muted, placeholder, stepsSummary, text } from './EditorWindow';
 
 const WIDTH = 760;
 const HEIGHT = 475;
@@ -76,7 +76,7 @@ function useLoopTime(loopEnd: number) {
 function Chat({ time, schedule }: { time: number; schedule: Timeline }) {
   const messages = useMessages();
   const { message, steps, reply } = messages.agentWindow;
-  const t = messages.wuWindow.chat;
+  const t = messages.yoWindow.chat;
   const sent = time >= schedule.sentAt;
   const replied = time >= schedule.replyAt;
   const draft = sent ? '' : message.slice(0, Math.max(0, Math.floor((time - TYPE_START) / schedule.typeSpeed)));
@@ -104,7 +104,7 @@ function Chat({ time, schedule }: { time: number; schedule: Timeline }) {
                     <Icon name="agent_arrow_down" size={14} />
                   </span>
                 </span>
-                <span className={working ? 'text-shimmer' : ''}>{stepsSummary(shownSteps, messages.wuWindow.summary)}</span>
+                <span className={working ? 'text-shimmer' : ''}>{stepsSummary(shownSteps, messages.yoWindow.summary)}</span>
               </div>
               {working &&
                 shownSteps.map((step, index) => (
@@ -191,13 +191,13 @@ export function AgentWindow() {
   const { message, chatTitle } = messages.agentWindow;
   const schedule = timeline(message);
   const { frameRef, time } = useLoopTime(schedule.loopEnd);
-  const title = time >= schedule.sentAt ? chatTitle : messages.wuWindow.tabs.newChat;
+  const title = time >= schedule.sentAt ? chatTitle : messages.yoWindow.tabs.newChat;
 
   return (
     <div ref={frameRef} className={`${mediaFrame} grid card-raised aspect-[16/10] place-items-center`} aria-hidden="true" inert>
       <div className="@container w-[88%] overflow-hidden rounded-[10px] shadow-[0_24px_60px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.12)]" style={{ aspectRatio: `${WIDTH} / ${HEIGHT}` }}>
         <div
-          className="flex origin-top-left flex-col bg-[#181a21] font-wu text-[14px] tracking-normal select-none"
+          className="flex origin-top-left flex-col bg-[#181a21] font-yo text-[14px] tracking-normal select-none"
           style={{ width: WIDTH, height: HEIGHT, color: text, scale: `tan(atan2(100cqw, ${WIDTH}px))` }}
         >
           <div className="flex h-8 shrink-0 items-center gap-1 border-b border-[#2c2f3a] px-2">

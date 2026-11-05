@@ -30,7 +30,7 @@ fn compile_time_release_channel_name() -> String {
 
 #[cfg(not(__do_not_set_zed_release_channel))]
 fn compile_time_release_channel_name() -> String {
-    include_str!("../../wu/RELEASE_CHANNEL").trim().to_string()
+    include_str!("../../yo/RELEASE_CHANNEL").trim().to_string()
 }
 
 #[doc(hidden)]
@@ -44,8 +44,8 @@ pub static RELEASE_CHANNEL: LazyLock<ReleaseChannel> =
 #[cfg(target_os = "windows")]
 pub fn app_identifier() -> &'static str {
     match *RELEASE_CHANNEL {
-        ReleaseChannel::Dev => "Wu-Editor-Dev",
-        ReleaseChannel::Stable => "Wu-Editor-Stable",
+        ReleaseChannel::Dev => "Yo-Editor-Dev",
+        ReleaseChannel::Stable => "Yo-Editor-Stable",
     }
 }
 
@@ -192,8 +192,8 @@ impl ReleaseChannel {
     /// Returns the display name for this [`ReleaseChannel`].
     pub fn display_name(&self) -> &'static str {
         match self {
-            ReleaseChannel::Dev => "Wu Dev",
-            ReleaseChannel::Stable => "Wu",
+            ReleaseChannel::Dev => "Yo Dev",
+            ReleaseChannel::Stable => "Yo",
         }
     }
 
@@ -210,8 +210,8 @@ impl ReleaseChannel {
     /// This also has to match the bundle identifier for Zed on macOS.
     pub fn app_id(&self) -> &'static str {
         match self {
-            ReleaseChannel::Dev => "me.farshed.Wu-Dev",
-            ReleaseChannel::Stable => "me.farshed.Wu",
+            ReleaseChannel::Dev => "me.farshed.Yo-Dev",
+            ReleaseChannel::Stable => "me.farshed.Yo",
         }
     }
 

@@ -44,15 +44,15 @@ jobs:
       - name: Install lld
         run: brew install lld
       - name: Use the stable release channel
-        run: echo stable > crates/wu/RELEASE_CHANNEL
+        run: echo stable > crates/yo/RELEASE_CHANNEL
       - name: Bundle
         run: script/bundle-mac aarch64-apple-darwin
       - name: Check Chinese translations
-        run: script/check-translations --binary target/aarch64-apple-darwin/release/wu
+        run: script/check-translations --binary target/aarch64-apple-darwin/release/yo
       - uses: actions/upload-artifact@v4
         with:
           name: macos-aarch64-develop
           path: |
-            target/aarch64-apple-darwin/release/Wu-aarch64.dmg
-            target/wu-remote-server-macos-aarch64.gz
+            target/aarch64-apple-darwin/release/Yo-aarch64.dmg
+            target/yo-remote-server-macos-aarch64.gz
           if-no-files-found: error

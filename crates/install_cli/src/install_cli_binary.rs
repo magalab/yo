@@ -1,4 +1,4 @@
-use super::register_wu_scheme;
+use super::register_yo_scheme;
 use anyhow::Result;
 use gpui::{AppContext as _, AsyncApp, Context, PromptButton, PromptLevel, Window, actions};
 use i18n::t;
@@ -13,13 +13,13 @@ use workspace::{Toast, Workspace};
 actions!(
     cli,
     [
-        /// Installs the Wu CLI tool to the system PATH.
+        /// Installs the Yo CLI tool to the system PATH.
         InstallCliBinary,
     ]
 );
 
 const CANT_INSTALL_DOCS_URL: &str =
-    "https://github.com/dstrml/wu/blob/main/docs/INSTALL.md#command-line";
+    "https://github.com/magalab/yo/blob/main/docs/INSTALL.md#command-line";
 
 /// Attempts to install the CLI symlink. Returns the installed path on success,
 /// or `None` if the user dismissed the macOS administrator authentication
@@ -27,57 +27,65 @@ const CANT_INSTALL_DOCS_URL: &str =
 /// commonly because the user is not an admin.
 async fn install_script(cx: &AsyncApp) -> Result<Option<PathBuf>> {
     let cli_path = cx.update(|cx| cx.path_for_auxiliary_executable("cli"))?;
-    let link_path = Path::new("/usr/local/bin/wu");
-    let bin_dir_path = link_path.parent().unwrap();
-
-    // Don't re-create symlink if it points to the same CLI binary.
-    if smol::fs::read_link(link_path).await.ok().as_ref() == Some(&cli_path) {
-        return Ok(Some(link_path.into()));
+    let yo_link_path = Path::new("/usr/local/bin/yo");
+    let Some(bin_dir_path) = yo_link_path.parent() else {
+        anyhow::bail!("the Yo CLI link has no parent directory");
+    };
+    match smol::fs::symlink_metadata(yo_link_path).await {
+        Ok(metadata) if metadata.file_type().is_symlink() => {
+            if smol::fs::read_link(yo_link_path).await? == cli_path {
+                return Ok(Some(yo_link_path.into()));
+            }
+        }
+        Ok(_) => anyhow::bail!(
+            "refusing to replace existing path {}",
+            yo_link_path.display()
+        ),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
     }
 
-    // If the symlink is not there or is outdated, first try replacing it
-    // without escalating.
-    smol::fs::remove_file(link_path).await.log_err();
-    if smol::fs::unix::symlink(&cli_path, link_path)
-        .await
-        .log_err()
-        .is_some()
-    {
-        return Ok(Some(link_path.into()));
+    let install_result = async {
+        smol::fs::create_dir_all(bin_dir_path).await?;
+        match smol::fs::remove_file(yo_link_path).await {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error),
+        }
+        smol::fs::unix::symlink(&cli_path, yo_link_path).await
+    }
+    .await;
+    match install_result {
+        Ok(()) => return Ok(Some(yo_link_path.into())),
+        Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {}
+        Err(error) => return Err(error.into()),
     }
 
-    // The symlink could not be created without escalating, so use osascript
-    // with admin privileges to create it.
+    let shell_quote = |path: &Path| format!("'{}'", path.to_string_lossy().replace("'", "'\"'\"'"));
+    let command = format!(
+        "mkdir -p {} && ln -sfn {} {}",
+        shell_quote(bin_dir_path),
+        shell_quote(&cli_path),
+        shell_quote(yo_link_path),
+    );
+    let script = format!(
+        "do shell script \"{}\" with administrator privileges",
+        command.replace('\\', "\\\\").replace('\"', "\\\""),
+    );
     let output = smol::process::Command::new("/usr/bin/osascript")
-        .args([
-            "-e",
-            &format!(
-                "do shell script \" \
-                    mkdir -p \'{}\' && \
-                    ln -sf \'{}\' \'{}\' \
-                \" with administrator privileges",
-                bin_dir_path.to_string_lossy(),
-                cli_path.to_string_lossy(),
-                link_path.to_string_lossy(),
-            ),
-        ])
+        .args(["-e", &script])
         .output()
         .await?;
 
     if output.status.success() {
-        return Ok(Some(link_path.into()));
+        return Ok(Some(yo_link_path.into()));
     }
 
-    // osascript reports "User canceled." (error -128) when the administrator
-    // prompt is dismissed. Treat that as a cancellation rather than a failure
-    // so we don't show an error the user already chose to avoid.
     let stderr = String::from_utf8_lossy(&output.stderr);
     if stderr.contains("User canceled") || stderr.contains("-128") {
         return Ok(None);
     }
 
-    // The privileged write failed, most commonly because the user is not an
-    // admin.
     anyhow::bail!("error running osascript: {}", stderr.trim());
 }
 
@@ -88,7 +96,7 @@ pub fn install_cli_binary(window: &mut Window, cx: &mut Context<Workspace>) {
                 PromptLevel::Warning,
                 &t!("CLI should already be installed"),
                 Some(&t!(
-                    "If you installed Wu from our official release add ~/.local/bin to your PATH.\n\nIf you installed Wu from a different source like your package manager, then you may need to create an alias/symlink manually.\n\nDepending on your package manager, the CLI might be named zeditor, zedit, zed-editor or something else."
+                    "If you installed Yo from our official release add ~/.local/bin to your PATH.\n\nIf you installed Yo from a different source like your package manager, then you may need to create an alias/symlink manually.\n\nDepending on your package manager, the CLI might be named zeditor, zedit, zed-editor or something else."
                 )),
                 &[PromptButton::ok(t!("OK"))],
             );
@@ -100,7 +108,7 @@ pub fn install_cli_binary(window: &mut Window, cx: &mut Context<Workspace>) {
             // The user dismissed the administrator prompt; nothing to do.
             Ok(None) => return Ok(()),
             Err(error) => {
-                log::error!("failed to install wu CLI: {error:#}");
+                log::error!("failed to install Yo CLI: {error:#}");
                 workspace.update(cx, |workspace, cx| {
                     struct CliInstallFailed;
 
@@ -110,10 +118,10 @@ pub fn install_cli_binary(window: &mut Window, cx: &mut Context<Workspace>) {
                         |cx| {
                             cx.new(|cx| {
                                 MessageNotification::new(
-                                    t!("You can add `wu` to your PATH manually."),
+                                    t!("You can add `yo` to your PATH manually."),
                                     cx,
                                 )
-                                .with_title(t!("Couldn't install the Wu CLI"))
+                                .with_title(t!("Couldn't install the Yo CLI"))
                                 .more_info_message(t!("Show me how"))
                                 .more_info_url(CANT_INSTALL_DOCS_URL)
                             })
@@ -131,7 +139,7 @@ pub fn install_cli_binary(window: &mut Window, cx: &mut Context<Workspace>) {
                 Toast::new(
                     NotificationId::unique::<InstalledZedCli>(),
                     t!(
-                        "Installed `wu` to {path}. You can launch {app} from your terminal.",
+                        "Installed `yo` to {path}. You can launch {app} from your terminal.",
                         path = path.to_string_lossy(),
                         app = ReleaseChannel::global(cx).display_name()
                     )
@@ -140,8 +148,8 @@ pub fn install_cli_binary(window: &mut Window, cx: &mut Context<Workspace>) {
                 cx,
             )
         })?;
-        register_wu_scheme(cx).await.log_err();
+        register_yo_scheme(cx).await.log_err();
         Ok(())
     })
-    .detach_and_prompt_err(&t!("Cannot install the Wu CLI"), window, cx, |_, _, _| None);
+    .detach_and_prompt_err(&t!("Cannot install the Yo CLI"), window, cx, |_, _, _| None);
 }

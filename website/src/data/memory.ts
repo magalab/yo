@@ -9,7 +9,7 @@ export const memoryScenarios: MemoryScenario[] = [
   {
     id: 'idle',
     results: [
-      { editor: 'Wu', mib: 382.5 },
+      { editor: 'Yo', mib: 382.5 },
       { editor: 'Zed', mib: 420.4 },
       { editor: 'VS Code', mib: 743.5 }
     ]
@@ -17,7 +17,7 @@ export const memoryScenarios: MemoryScenario[] = [
   {
     id: 'search',
     results: [
-      { editor: 'Wu', mib: 582.9 },
+      { editor: 'Yo', mib: 582.9 },
       { editor: 'Zed', mib: 1395.3 },
       { editor: 'VS Code', mib: 823.6 }
     ]

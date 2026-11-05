@@ -31,7 +31,7 @@ use walkdir::WalkDir;
 
 use std::io::IsTerminal;
 
-const URL_PREFIX: [&'static str; 5] = ["wu://", "http://", "https://", "file://", "ssh://"];
+const URL_PREFIX: [&'static str; 5] = ["yo://", "http://", "https://", "file://", "ssh://"];
 
 struct Detect;
 
@@ -48,21 +48,21 @@ trait InstalledApp {
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "wu",
+    name = "yo",
     disable_version_flag = true,
-    before_help = "The Wu CLI binary.
-This CLI is a separate binary that invokes Wu.
+    before_help = "The Yo CLI binary.
+This CLI is a separate binary that invokes Yo.
 
 Examples:
-    `wu`
-          Simply opens Wu
-    `wu --foreground`
+    `yo`
+          Simply opens Yo
+    `yo --foreground`
           Runs in foreground (shows all logs)
-    `wu path-to-your-project`
-          Open your project in Wu
-    `wu -n path-to-file `
+    `yo path-to-your-project`
+          Open your project in Yo
+    `yo -n path-to-file `
           Open file/folder in a new window",
-    after_help = "To read from stdin, append '-', e.g. 'ps axf | wu -'"
+    after_help = "To read from stdin, append '-', e.g. 'ps axf | yo -'"
 )]
 struct Args {
     /// Wait for all of the given paths to be opened/closed before exiting.
@@ -79,7 +79,7 @@ struct Args {
     /// Reuse an existing window, replacing its workspace
     #[arg(short, long, overrides_with_all = ["add", "new", "existing", "classic"], hide = true)]
     reuse: bool,
-    /// Open in existing Wu window
+    /// Open in existing Yo window
     #[arg(short = 'e', long = "existing", overrides_with_all = ["add", "new", "reuse", "classic"])]
     existing: bool,
     /// Use the classic open behavior: new window for directories, reuse for files
@@ -87,33 +87,33 @@ struct Args {
     classic: bool,
     /// Sets a custom directory for all user data (e.g., database, extensions, logs).
     /// This overrides the default platform-specific data directory location:
-    #[cfg_attr(target_os = "macos", doc = "`~/Library/Application Support/Wu`.")]
-    #[cfg_attr(target_os = "windows", doc = "`%LOCALAPPDATA%\\Wu`.")]
+    #[cfg_attr(target_os = "macos", doc = "`~/Library/Application Support/Yo`.")]
+    #[cfg_attr(target_os = "windows", doc = "`%LOCALAPPDATA%\\Yo`.")]
     #[cfg_attr(
         not(any(target_os = "windows", target_os = "macos")),
-        doc = "`$XDG_DATA_HOME/wu`."
+        doc = "`$XDG_DATA_HOME/yo`."
     )]
     #[arg(long, value_name = "DIR", value_hint = clap::ValueHint::DirPath)]
     user_data_dir: Option<String>,
-    /// The paths to open in Wu (space-separated).
+    /// The paths to open in Yo (space-separated).
     ///
     /// Use `path:line:column` syntax to open a file at the given line and column.
     #[arg(trailing_var_arg = true, value_hint = clap::ValueHint::AnyPath)]
     paths_with_position: Vec<String>,
-    /// Print Wu's version and the app path.
+    /// Print Yo's version and the app path.
     #[arg(short, long)]
     version: bool,
-    /// Run wu in the foreground (useful for debugging)
+    /// Run yo in the foreground (useful for debugging)
     #[arg(long)]
     foreground: bool,
-    /// Custom path to Wu.app or the wu binary
+    /// Custom path to Yo.app or the yo binary
     #[arg(long)]
     zed: Option<PathBuf>,
-    /// Run wu in dev-server mode
+    /// Run yo in dev-server mode
     #[arg(long)]
     dev_server_token: Option<String>,
     /// The username and WSL distribution to use when opening paths. If not specified,
-    /// Wu will attempt to open the paths directly.
+    /// Yo will attempt to open the paths directly.
     ///
     /// The username is optional, and if not specified, the default user for the distribution
     /// will be used.
@@ -124,7 +124,7 @@ struct Args {
     #[cfg(target_os = "windows")]
     #[arg(long, value_name = "USER@DISTRO")]
     wsl: Option<String>,
-    /// Not supported in Wu CLI, only supported on Wu binary
+    /// Not supported in Yo CLI, only supported on Yo binary
     /// Will attempt to give the correct command to run
     #[arg(long)]
     system_specs: bool,
@@ -132,10 +132,10 @@ struct Args {
     /// When directories are provided, recurses into them and shows all changed files in a single multi-diff view.
     #[arg(long, action = clap::ArgAction::Append, num_args = 2, value_names = ["OLD_PATH", "NEW_PATH"], value_hint = clap::ValueHint::AnyPath)]
     diff: Vec<String>,
-    /// Generate shell completions for Wu
+    /// Generate shell completions for Yo
     #[arg(long, value_names = ["SHELL"])]
     completions: Option<Shell>,
-    /// Uninstall Wu from user system
+    /// Uninstall Yo from user system
     #[cfg(all(
         any(target_os = "linux", target_os = "macos"),
         not(feature = "no-bundled-uninstall")
@@ -144,7 +144,7 @@ struct Args {
     uninstall: bool,
 
     /// Used for SSH/Git password authentication, to remove the need for netcat as a dependency,
-    /// by having Wu act like netcat communicating over a Unix socket.
+    /// by having Yo act like netcat communicating over a Unix socket.
     #[arg(long, hide = true)]
     askpass: Option<String>,
 }
@@ -545,7 +545,7 @@ fn run() -> Result<()> {
     if args.system_specs {
         let path = app.path();
         let msg = [
-            "The `--system-specs` argument is not supported in the Wu CLI, only on Wu binary.",
+            "The `--system-specs` argument is not supported in the Yo CLI, only on Yo binary.",
             "To retrieve the system specs on the command line, run the following command:",
             &format!("{} --system-specs", path.display()),
         ];
@@ -576,8 +576,8 @@ fn run() -> Result<()> {
     }
 
     let (server, server_name) =
-        IpcOneShotServer::<IpcHandshake>::new().context("Handshake before Wu spawn")?;
-    let url = format!("wu-cli://{server_name}");
+        IpcOneShotServer::<IpcHandshake>::new().context("Handshake before Yo spawn")?;
+    let url = format!("yo-cli://{server_name}");
 
     let open_behavior = if args.new {
         cli::OpenBehavior::AlwaysNew
@@ -697,7 +697,7 @@ fn run() -> Result<()> {
             let exit_status = exit_status.clone();
             let user_data_dir_for_thread = user_data_dir.clone();
             move || {
-                let (_, handshake) = server.accept().context("Handshake after Wu spawn")?;
+                let (_, handshake) = server.accept().context("Handshake after Yo spawn")?;
                 let (tx, rx) = (handshake.requests, handshake.responses);
 
                 #[cfg(target_os = "windows")]
@@ -831,7 +831,7 @@ fn anonymous_fd(path: &str) -> Option<fs::File> {
 }
 
 /// Shows an interactive prompt asking the user to choose the default open
-/// behavior for `wu <path>`. Returns `None` if the prompt cannot be shown
+/// behavior for `yo <path>`. Returns `None` if the prompt cannot be shown
 /// (e.g. stdin is not a terminal) or the user cancels.
 fn prompt_open_behavior() -> Option<cli::CliBehaviorSetting> {
     if !std::io::stdin().is_terminal() {
@@ -841,16 +841,16 @@ fn prompt_open_behavior() -> Option<cli::CliBehaviorSetting> {
     let blue = console::Style::new().blue();
     let items = [
         format!(
-            "Add to existing Wu window ({})",
-            blue.apply_to("wu --existing")
+            "Add to existing Yo window ({})",
+            blue.apply_to("yo --existing")
         ),
-        format!("Open a new window ({})", blue.apply_to("wu --classic")),
+        format!("Open a new window ({})", blue.apply_to("yo --classic")),
     ];
 
     let prompt = format!(
         "Configure default behavior for {}\n{}",
-        blue.apply_to("wu <path>"),
-        console::style("You can change this later in Wu settings"),
+        blue.apply_to("yo <path>"),
+        console::style("You can change this later in Yo settings"),
     );
 
     let selection = dialoguer::Select::new()
@@ -896,9 +896,9 @@ mod linux {
                 let cli = env::current_exe()?;
                 let dir = cli.parent().context("no parent path for cli")?;
 
-                // libexec is the standard, lib/wu is for Arch (and other non-libexec distros),
-                // ./wu is for the target directory in development builds.
-                let possible_locations = ["../libexec/wu-editor", "../lib/wu/wu-editor", "./wu"];
+                // libexec is the standard, lib/yo is for Arch (and other non-libexec distros),
+                // ./yo is for the target directory in development builds.
+                let possible_locations = ["../libexec/yo-editor", "../lib/yo/yo-editor", "./yo"];
                 possible_locations
                     .iter()
                     .find_map(|p| dir.join(p).canonicalize().ok().filter(|path| path != &cli))
@@ -914,7 +914,7 @@ mod linux {
     impl InstalledApp for App {
         fn zed_version_string(&self) -> String {
             format!(
-                "Wu {}{}{} – {}",
+                "Yo {}{}{} – {}",
                 if *release_channel::RELEASE_CHANNEL_NAME == "stable" {
                     "".to_string()
                 } else {
@@ -935,7 +935,7 @@ mod linux {
                 .unwrap_or_else(|| paths::data_dir().clone());
 
             let sock_path = data_dir.join(format!(
-                "wu-{}.sock",
+                "yo-{}.sock",
                 *release_channel::RELEASE_CHANNEL_NAME
             ));
             let sock = UnixDatagram::unbound()?;
@@ -1031,7 +1031,7 @@ mod flatpak {
         if !invocation_args.iter().any(|arg| arg == "--zed") {
             // Positional paths consume all following arguments, so launcher options must precede them.
             args.push("--zed".into());
-            args.push(flatpak_dir.join("libexec").join("wu-editor").into());
+            args.push(flatpak_dir.join("libexec").join("yo-editor").into());
         }
 
         args.extend_from_slice(invocation_args);
@@ -1066,7 +1066,7 @@ mod flatpak {
                 )
                 .into(),
             );
-            args.push(flatpak_dir.join("bin").join("wu").into());
+            args.push(flatpak_dir.join("bin").join("yo").into());
 
             let invocation_args = env::args_os().skip(1).collect::<Vec<_>>();
             args.extend(restart_cli_args(&flatpak_dir, &invocation_args));
@@ -1079,10 +1079,10 @@ mod flatpak {
 
     pub fn set_bin_if_no_escape(mut args: super::Args) -> super::Args {
         if env::var(NO_ESCAPE_ENV_NAME).is_ok()
-            && env::var("FLATPAK_ID").is_ok_and(|id| id.starts_with("me.farshed.Wu"))
+            && env::var("FLATPAK_ID").is_ok_and(|id| id.starts_with("me.farshed.Yo"))
             && args.zed.is_none()
         {
-            args.zed = Some("/app/libexec/wu-editor".into());
+            args.zed = Some("/app/libexec/yo-editor".into());
             unsafe { env::set_var("ZED_UPDATE_EXPLANATION", "Please use flatpak to update zed") };
         }
         args
@@ -1094,7 +1094,7 @@ mod flatpak {
         }
 
         if let Ok(flatpak_id) = env::var("FLATPAK_ID") {
-            if !flatpak_id.starts_with("me.farshed.Wu") {
+            if !flatpak_id.starts_with("me.farshed.Yo") {
                 return None;
             }
 
@@ -1137,10 +1137,10 @@ mod flatpak {
             let flatpak_dir = Path::new("/flatpak");
             let args = restart_cli_args(flatpak_dir, &["project".into()]);
             let parsed =
-                crate::Args::try_parse_from(std::iter::once(OsString::from("wu")).chain(args))
+                crate::Args::try_parse_from(std::iter::once(OsString::from("yo")).chain(args))
                     .unwrap();
 
-            assert_eq!(parsed.zed, Some(flatpak_dir.join("libexec/wu-editor")));
+            assert_eq!(parsed.zed, Some(flatpak_dir.join("libexec/yo-editor")));
             assert_eq!(parsed.paths_with_position, ["project"]);
 
             let invocation_args = ["--zed".into(), "/custom/zed-editor".into()];
@@ -1200,7 +1200,7 @@ mod windows {
     impl InstalledApp for App {
         fn zed_version_string(&self) -> String {
             format!(
-                "Wu {}{}{} – {}",
+                "Yo {}{}{} – {}",
                 if *release_channel::RELEASE_CHANNEL_NAME == "stable" {
                     "".to_string()
                 } else {
@@ -1275,9 +1275,9 @@ mod windows {
                 let cli = std::env::current_exe()?;
                 let dir = cli.parent().context("no parent path for cli")?;
 
-                // ../Wu.exe is the standard, lib/wu is for MSYS2, ./wu.exe is for the target
+                // ../Yo.exe is the standard, lib/yo is for MSYS2, ./yo.exe is for the target
                 // directory in development builds.
-                let possible_locations = ["../Wu.exe", "../lib/wu/wu-editor.exe", "./wu.exe"];
+                let possible_locations = ["../Yo.exe", "../lib/yo/yo-editor.exe", "./yo.exe"];
                 possible_locations
                     .iter()
                     .find_map(|p| dir.join(p).canonicalize().ok().filter(|path| path != &cli))
@@ -1388,13 +1388,13 @@ mod mac_os {
 
     impl InstalledApp for Bundle {
         fn zed_version_string(&self) -> String {
-            format!("Wu {} – {}", self.version(), self.path().display(),)
+            format!("Yo {} – {}", self.version(), self.path().display(),)
         }
 
         fn launch(&self, url: String, user_data_dir: Option<&str>) -> anyhow::Result<()> {
             match self {
                 Self::App { app_bundle, .. } if !io::stdout().is_terminal() => {
-                    // LaunchServices hands our environment to the app, so a launcher's would leak into Wu.
+                    // LaunchServices hands our environment to the app, so a launcher's would leak into Yo.
                     let status = Command::new("/usr/bin/open")
                         .env_clear()
                         .envs(std::env::vars_os().filter(|(name, _)| {
@@ -1486,7 +1486,7 @@ mod mac_os {
             user_data_dir: Option<&str>,
         ) -> io::Result<ExitStatus> {
             let path = match self {
-                Bundle::App { app_bundle, .. } => app_bundle.join("Contents/MacOS/wu"),
+                Bundle::App { app_bundle, .. } => app_bundle.join("Contents/MacOS/yo"),
                 Bundle::LocalPath { executable, .. } => executable.clone(),
             };
 
@@ -1500,7 +1500,7 @@ mod mac_os {
 
         fn path(&self) -> PathBuf {
             match self {
-                Bundle::App { app_bundle, .. } => app_bundle.join("Contents/MacOS/wu"),
+                Bundle::App { app_bundle, .. } => app_bundle.join("Contents/MacOS/yo"),
                 Bundle::LocalPath { executable, .. } => executable.clone(),
             }
         }

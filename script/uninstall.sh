@@ -1,27 +1,27 @@
 #!/usr/bin/env sh
 set -eu
 
-# Uninstalls Wu that was installed using the install.sh script
+# Uninstalls Yo that was installed using the install.sh script
 
 check_remaining_installations() {
     platform="$(uname -s)"
     if [ "$platform" = "Darwin" ]; then
-        # Check for any Wu variants in /Applications
-        remaining=$(ls -d /Applications/Wu*.app 2>/dev/null | wc -l)
+        # Check for any Yo variants in /Applications
+        remaining=$(ls -d /Applications/Yo*.app 2>/dev/null | wc -l)
         [ "$remaining" -eq 0 ]
     else
-        # Check for any Wu variants in ~/.local
-        remaining=$(ls -d "$HOME/.local/wu"*.app 2>/dev/null | wc -l)
+        # Check for any Yo variants in ~/.local
+        remaining=$(ls -d "$HOME/.local/yo"*.app 2>/dev/null | wc -l)
         [ "$remaining" -eq 0 ]
     fi
 }
 
 prompt_remove_preferences() {
-    printf "Do you want to keep your Wu preferences? [Y/n] "
+    printf "Do you want to keep your Yo preferences? [Y/n] "
     read -r response
     case "$response" in
         [nN]|[nN][oO])
-            rm -rf "$HOME/.config/wu"
+            rm -rf "$HOME/.config/yo"
             echo "Preferences removed."
             ;;
         *)
@@ -45,7 +45,7 @@ main() {
 
     "$platform"
 
-    echo "Wu has been uninstalled"
+    echo "Yo has been uninstalled"
 }
 
 linux() {
@@ -58,53 +58,53 @@ linux() {
     db_suffix="stable"
     case "$channel" in
       stable)
-        appid="me.farshed.Wu"
+        appid="me.farshed.Yo"
         db_suffix="stable"
         ;;
       dev)
-        appid="me.farshed.Wu-Dev"
+        appid="me.farshed.Yo-Dev"
         db_suffix="dev"
         ;;
       *)
         echo "Unknown release channel: ${channel}. Using stable app ID."
-        appid="me.farshed.Wu"
+        appid="me.farshed.Yo"
         db_suffix="stable"
         ;;
     esac
 
     # Remove the app directory
-    rm -rf "$HOME/.local/wu$suffix.app"
+    rm -rf "$HOME/.local/yo$suffix.app"
 
     # Remove the binary symlink
-    rm -f "$HOME/.local/bin/wu"
+    rm -f "$HOME/.local/bin/yo"
 
     # Remove the .desktop file
     rm -f "$HOME/.local/share/applications/${appid}.desktop"
 
     # Remove the database directory for this channel
-    rm -rf "$HOME/.local/share/wu/db/0-$db_suffix"
+    rm -rf "$HOME/.local/share/yo/db/0-$db_suffix"
 
     # Remove socket file
-    rm -f "$HOME/.local/share/wu/wu-$db_suffix.sock"
+    rm -f "$HOME/.local/share/yo/yo-$db_suffix.sock"
 
-    # Remove the entire Wu directory if no installations remain
+    # Remove the entire Yo directory if no installations remain
     if check_remaining_installations; then
-        rm -rf "$HOME/.local/share/wu"
+        rm -rf "$HOME/.local/share/yo"
         prompt_remove_preferences
     fi
 
-    rm -rf "$HOME/.wu_server"
+    rm -rf "$HOME/.yo_server"
 }
 
 macos() {
-    app="Wu.app"
+    app="Yo.app"
     db_suffix="stable"
-    app_id="me.farshed.Wu"
+    app_id="me.farshed.Yo"
     case "$channel" in
       dev)
-        app="Wu Dev.app"
+        app="Yo Dev.app"
         db_suffix="dev"
-        app_id="me.farshed.Wu-Dev"
+        app_id="me.farshed.Yo-Dev"
         ;;
     esac
 
@@ -114,10 +114,10 @@ macos() {
     fi
 
     # Remove the binary symlink
-    rm -f "$HOME/.local/bin/wu"
+    rm -f "$HOME/.local/bin/yo"
 
     # Remove the database directory for this channel
-    rm -rf "$HOME/Library/Application Support/Wu/db/0-$db_suffix"
+    rm -rf "$HOME/Library/Application Support/Yo/db/0-$db_suffix"
 
     # Remove app-specific files and directories
     rm -rf "$HOME/Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.ApplicationRecentDocuments/$app_id.sfl"*
@@ -126,15 +126,15 @@ macos() {
     rm -rf "$HOME/Library/Preferences/$app_id.plist"
     rm -rf "$HOME/Library/Saved Application State/$app_id.savedState"
 
-    # Remove the entire Wu directory if no installations remain
+    # Remove the entire Yo directory if no installations remain
     if check_remaining_installations; then
-        rm -rf "$HOME/Library/Application Support/Wu"
-        rm -rf "$HOME/Library/Logs/Wu"
+        rm -rf "$HOME/Library/Application Support/Yo"
+        rm -rf "$HOME/Library/Logs/Yo"
 
         prompt_remove_preferences
     fi
 
-    rm -rf "$HOME/.wu_server"
+    rm -rf "$HOME/.yo_server"
 }
 
 main "$@"

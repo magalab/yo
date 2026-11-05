@@ -39,7 +39,7 @@ use workspace::{
     item::{Item, ItemEvent},
     workspace_error::{ErrorAction, ErrorSeverity, WorkspaceError},
 };
-use wu_actions::ExtensionCategoryFilter;
+use app_actions::ExtensionCategoryFilter;
 
 use crate::components::{ExtensionCard, extension_provides_label, remote_extension_status};
 use crate::extension_version_selector::{
@@ -47,7 +47,7 @@ use crate::extension_version_selector::{
 };
 
 actions!(
-    wu,
+    yo,
     [
         /// Installs an extension from a local directory for development.
         InstallDevExtension,
@@ -56,7 +56,7 @@ actions!(
 
 /// Rebuilds an installed dev extension.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, JsonSchema, gpui::Action)]
-#[action(namespace = wu)]
+#[action(namespace = yo)]
 #[serde(deny_unknown_fields)]
 pub struct RebuildDevExtension {
     /// The ID of the dev extension to rebuild.
@@ -118,7 +118,7 @@ pub fn init(cx: &mut App) {
         };
         workspace
             .register_action(
-                move |workspace, action: &wu_actions::Extensions, window, cx| {
+                move |workspace, action: &app_actions::Extensions, window, cx| {
                     let provides_filter = action.category_filter.map(|category| match category {
                         ExtensionCategoryFilter::Themes => ExtensionProvides::Themes,
                         ExtensionCategoryFilter::IconThemes => ExtensionProvides::IconThemes,
@@ -485,7 +485,7 @@ impl ExtensionsPage {
             workspace
                 .update(cx, |_workspace, cx| {
                     window.dispatch_action(
-                        wu_actions::theme_selector::Toggle {
+                        app_actions::theme_selector::Toggle {
                             themes_filter: Some(themes),
                         }
                         .boxed_clone(),
@@ -504,7 +504,7 @@ impl ExtensionsPage {
             workspace
                 .update(cx, |_workspace, cx| {
                     window.dispatch_action(
-                        wu_actions::icon_theme_selector::Toggle {
+                        app_actions::icon_theme_selector::Toggle {
                             themes_filter: Some(icon_themes),
                         }
                         .boxed_clone(),
@@ -1019,59 +1019,59 @@ impl ExtensionsPage {
         for feature in &self.upsells {
             let banner = match feature {
                 Feature::ExtensionBasedpyright => self.render_feature_upsell_banner(
-                    t!("Basedpyright (Python language server) support is built-in to Wu!"),
+                    t!("Basedpyright (Python language server) support is built-in to Yo!"),
                     "https://zed.dev/docs/languages/python#basedpyright".into(),
                 ),
                 Feature::ExtensionRuff => self.render_feature_upsell_banner(
-                    t!("Ruff (linter for Python) support is built-in to Wu!"),
+                    t!("Ruff (linter for Python) support is built-in to Yo!"),
                     "https://zed.dev/docs/languages/python#code-formatting--linting".into(),
                 ),
                 Feature::ExtensionTailwind => self.render_feature_upsell_banner(
-                    t!("Tailwind CSS support is built-in to Wu!"),
+                    t!("Tailwind CSS support is built-in to Yo!"),
                     "https://zed.dev/docs/languages/tailwindcss".into(),
                 ),
                 Feature::ExtensionTy => self.render_feature_upsell_banner(
-                    t!("Ty (Python language server) support is built-in to Wu!"),
+                    t!("Ty (Python language server) support is built-in to Yo!"),
                     "https://zed.dev/docs/languages/python".into(),
                 ),
                 Feature::Git => self.render_feature_upsell_banner(
-                    t!("Wu comes with basic Git support—more features are coming in the future."),
+                    t!("Yo comes with basic Git support—more features are coming in the future."),
                     "https://zed.dev/docs/git".into(),
                 ),
                 Feature::LanguageBash => self.render_feature_upsell_banner(
-                    t!("Shell support is built-in to Wu!"),
+                    t!("Shell support is built-in to Yo!"),
                     "https://zed.dev/docs/languages/bash".into(),
                 ),
                 Feature::LanguageC => self.render_feature_upsell_banner(
-                    t!("C support is built-in to Wu!"),
+                    t!("C support is built-in to Yo!"),
                     "https://zed.dev/docs/languages/c".into(),
                 ),
                 Feature::LanguageCpp => self.render_feature_upsell_banner(
-                    t!("C++ support is built-in to Wu!"),
+                    t!("C++ support is built-in to Yo!"),
                     "https://zed.dev/docs/languages/cpp".into(),
                 ),
                 Feature::LanguageGo => self.render_feature_upsell_banner(
-                    t!("Go support is built-in to Wu!"),
+                    t!("Go support is built-in to Yo!"),
                     "https://zed.dev/docs/languages/go".into(),
                 ),
                 Feature::LanguagePython => self.render_feature_upsell_banner(
-                    t!("Python support is built-in to Wu!"),
+                    t!("Python support is built-in to Yo!"),
                     "https://zed.dev/docs/languages/python".into(),
                 ),
                 Feature::LanguageReact => self.render_feature_upsell_banner(
-                    t!("React support is built-in to Wu!"),
+                    t!("React support is built-in to Yo!"),
                     "https://zed.dev/docs/languages/typescript".into(),
                 ),
                 Feature::LanguageRust => self.render_feature_upsell_banner(
-                    t!("Rust support is built-in to Wu!"),
+                    t!("Rust support is built-in to Yo!"),
                     "https://zed.dev/docs/languages/rust".into(),
                 ),
                 Feature::LanguageTypescript => self.render_feature_upsell_banner(
-                    t!("Typescript support is built-in to Wu!"),
+                    t!("Typescript support is built-in to Yo!"),
                     "https://zed.dev/docs/languages/typescript".into(),
                 ),
                 Feature::OpenIn => self.render_feature_upsell_banner(
-                    t!("Wu supports linking to a source line on GitHub and others."),
+                    t!("Yo supports linking to a source line on GitHub and others."),
                     "https://zed.dev/docs/git#git-integrations".into(),
                 ),
             };
