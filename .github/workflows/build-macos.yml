@@ -29,6 +29,18 @@ jobs:
         run: xcodebuild -downloadComponent metalToolchain
       - name: Install Rust toolchain
         run: rustup show
+      - name: Cache Cargo dependencies and build outputs
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target/aarch64-apple-darwin/release/build
+            target/aarch64-apple-darwin/release/deps
+          key: macos-aarch64-cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml') }}
+          restore-keys: |
+            macos-aarch64-cargo-${{ hashFiles('rust-toolchain.toml', '.cargo/config.toml') }}-
       - name: Install lld
         run: brew install lld
       - name: Use the stable release channel

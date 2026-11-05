@@ -3192,6 +3192,19 @@ impl Editor {
         self.cursor_shape
     }
 
+    pub(crate) fn rendered_cursor_shape(&self) -> CursorShape {
+        if self.vim_mode_enabled
+            && matches!(
+                self.lightweight_vim_mode,
+                LightweightVimMode::Normal | LightweightVimMode::Visual
+            )
+        {
+            CursorShape::Block
+        } else {
+            self.cursor_shape
+        }
+    }
+
     pub fn set_cursor_offset_on_selection(&mut self, set_cursor_offset_on_selection: bool) {
         self.cursor_offset_on_selection = set_cursor_offset_on_selection;
     }
