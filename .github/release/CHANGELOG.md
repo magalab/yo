@@ -4,6 +4,10 @@ All notable user-facing changes to Yo are listed here, newest first.
 
 ## Unreleased
 
+- Added a lightweight Vim mode with common navigation and editing commands.
+- Added workspace layout controls, including Activity Bar positioning.
+- Added Homebrew installation for macOS.
+
 ## 1.1.18 - 2026-11-06
 
 - Smaller download and install size on all platforms.

@@ -36,8 +36,8 @@ if [[ "$(printf '%s\n%s\n' "$current" "$version" | sort -V | tail -1)" != "$vers
   fail "version $version is not newer than the current version $current"
 fi
 
-if [[ "$(git branch --show-current)" != "main" ]]; then
-  fail "releases are cut from main, current branch is $(git branch --show-current)"
+if [[ "$(git branch --show-current)" != "develop" ]]; then
+  fail "releases are cut from develop, current branch is $(git branch --show-current)"
 fi
 
 if [[ -n "$(git status --porcelain)" ]]; then
@@ -45,8 +45,8 @@ if [[ -n "$(git status --porcelain)" ]]; then
 fi
 
 git fetch --quiet origin
-if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
-  fail "main is not in sync with origin/main; pull or push first"
+if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/develop)" ]]; then
+  fail "develop is not in sync with origin/develop; pull or push first"
 fi
 
 if git rev-parse --quiet --verify "refs/tags/$tag" >/dev/null; then
@@ -92,10 +92,10 @@ git tag "$tag"
 echo "Committed $(git rev-parse --short HEAD) and tagged $tag."
 
 if [[ "$push" == false ]]; then
-  echo "Not pushing. When ready: git push origin main && git push origin $tag"
+  echo "Not pushing. When ready: git push origin develop && git push origin $tag"
   exit 0
 fi
 
-git push --quiet origin main
+git push --quiet origin develop
 git push --quiet origin "$tag"
 echo "Pushed. Watch the release at https://github.com/magalab/yo/actions/workflows/release.yml"
