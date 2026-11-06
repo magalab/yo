@@ -164,3 +164,79 @@ jobs:
         with:
           body_path: release-body.md
           files: artifacts/**
+
+  homebrew:
+    needs: release
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download macOS release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p release-assets
+          gh release download "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --pattern "Yo-aarch64.dmg" \
+            --pattern "Yo-x86_64.dmg" \
+            --dir release-assets
+
+          for asset in Yo-aarch64.dmg Yo-x86_64.dmg; do
+            if [ ! -f "release-assets/${asset}" ]; then
+              echo "Missing release asset: ${asset}"
+              ls -lh release-assets
+              exit 1
+            fi
+          done
+
+      - name: Compute checksums
+        id: checksums
+        run: |
+          echo "version=${GITHUB_REF_NAME#v}" >> "${GITHUB_OUTPUT}"
+          echo "arm_sha256=$(sha256sum release-assets/Yo-aarch64.dmg | awk '{print $1}')" >> "${GITHUB_OUTPUT}"
+          echo "intel_sha256=$(sha256sum release-assets/Yo-x86_64.dmg | awk '{print $1}')" >> "${GITHUB_OUTPUT}"
+
+      - name: Checkout Homebrew tap
+        uses: actions/checkout@v7
+        with:
+          repository: magalab/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: Update Yo cask
+        run: |
+          mkdir -p tap/Casks
+          cat > tap/Casks/yo.rb <<'RUBY'
+          cask "yo" do
+            arch arm: "aarch64", intel: "x86_64"
+
+            version "__VERSION__"
+            sha256 arm: "__ARM_SHA256__", intel: "__INTEL_SHA256__"
+
+            url "https://github.com/magalab/yo/releases/download/v#{version}/Yo-#{arch}.dmg"
+            name "Yo"
+            desc "Native code editor with built-in coding agents"
+            homepage "https://github.com/magalab/yo"
+
+            app "Yo.app"
+            binary "/Applications/Yo.app/Contents/MacOS/cli", target: "yo"
+          end
+          RUBY
+
+          sed -i \
+            -e "s/__VERSION__/${{ steps.checksums.outputs.version }}/g" \
+            -e "s/__ARM_SHA256__/${{ steps.checksums.outputs.arm_sha256 }}/g" \
+            -e "s/__INTEL_SHA256__/${{ steps.checksums.outputs.intel_sha256 }}/g" \
+            tap/Casks/yo.rb
+
+      - name: Commit and push cask
+        working-directory: tap
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/yo.rb
+          if git diff --cached --quiet; then
+            echo "Yo cask is already up to date"
+            exit 0
+          fi
+          git commit -m "yo ${GITHUB_REF_NAME}"
+          git push

@@ -19,7 +19,13 @@ Yo 是一款用 Rust 编写的快速原生代码编辑器，基于开源的 [Zed
 
 ## 下载
 
-在 macOS 和 Linux 上运行：
+在 macOS 上，可以从 Homebrew tap 安装：
+
+```sh
+brew install --cask magalab/tap/yo
+```
+
+在 macOS 和 Linux 上也可以运行：
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/magalab/yo/develop/script/install.sh | sh

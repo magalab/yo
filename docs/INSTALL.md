@@ -4,6 +4,12 @@ All releases are available [here](https://github.com/magalab/yo/releases/latest)
 
 ### macOS (Apple Silicon and Intel)
 
+#### Homebrew
+
+```sh
+brew install --cask magalab/tap/yo
+```
+
 1. Download the installer for your Mac, open it, and drag Yo into your Applications folder.
     - [**Apple Silicon**](https://github.com/magalab/yo/releases/latest/download/Yo-aarch64.dmg) (M1 and later)
     - [**Intel**](https://github.com/magalab/yo/releases/latest/download/Yo-x86_64.dmg)
