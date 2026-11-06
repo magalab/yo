@@ -1154,6 +1154,10 @@
     "name": "删除选区",
     "description": "删除当前字符选区并返回普通模式。"
   },
+  "editor::VimInput": {
+    "name": "Vim 按键输入",
+    "description": "将按键传递给轻量 Vim 命令解析器。"
+  },
   "editor::VimInsertMode": {
     "name": "插入模式",
     "description": "在轻量 Vim 模式中进入插入模式。"

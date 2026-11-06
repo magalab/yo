@@ -3,7 +3,6 @@
   "Use Normal, Insert, and Visual modes with common Vim commands.": "使用普通、插入和可视模式，以及常用 Vim 操作。",
   "You can change the keymap later in Settings.": "之后可在设置中切换键位方案。",
   "Automatically mark all new projects as trusted to unlock all Yo's features": "自动将所有新项目标记为受信任，以使用 Yo 的全部功能",
-  "Automatically pull your settings from other editors": "自动从其他编辑器导入你的设置",
   "Base Keymap": "基础键位映射",
   "Cancel": "取消",
   "Could not find or load a {source} settings file": "找不到或无法加载 {source} 设置文件",
