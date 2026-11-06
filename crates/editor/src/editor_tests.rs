@@ -3233,6 +3233,612 @@ async fn test_lightweight_vim_basic_modes_and_edits(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+async fn test_lightweight_vim_operator_counts_objects_and_visual_paste(cx: &mut TestAppContext) {
+    init_test(cx, |_| {});
+    update_test_editor_settings(cx, &|settings| settings.vim_mode = Some(true));
+    cx.update(|cx| {
+        let key_bindings = settings::KeymapFile::load_asset_allow_partial_failure(
+            "keymaps/default-macos.json",
+            cx,
+        )
+        .expect("macOS keymap should load");
+        cx.bind_keys(key_bindings);
+        cx.bind_keys(
+            settings::KeymapFile::load_asset_allow_partial_failure("keymaps/macos/vscode.json", cx)
+                .expect("VS Code keymap should load"),
+        );
+    });
+    let mut cx = EditorTestContext::new(cx).await;
+    cx.set_state("ˇone two three");
+    cx.simulate_keystrokes("d 1 w");
+    cx.assert_editor_state("ˇtwo three");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("ˇone two three");
+    cx.simulate_keystrokes("c a w");
+    cx.simulate_keystrokes("x escape");
+    cx.assert_editor_state("ˇxtwo three");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("ˇone two three");
+
+    cx.set_state("ˇone\n\ntwo\n\nthree");
+    cx.simulate_keystrokes("d 2 a p");
+    cx.assert_editor_state("ˇthree");
+    cx.simulate_keystrokes("y y 3 p");
+    cx.assert_editor_state("three\nˇthree\nthree\nthree");
+
+    cx.set_state("aˇbc");
+    cx.write_to_clipboard(ClipboardItem::new_string("XY".into()));
+    cx.simulate_keystrokes("3 p");
+    cx.assert_editor_state("abXYXYXˇYc");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("aˇbc");
+
+    cx.set_state("ˇone two");
+    cx.simulate_keystrokes("v l l p");
+    cx.assert_editor_state("XˇYe two");
+    cx.simulate_keystrokes("d escape w");
+    cx.assert_editor_state("XYe ˇtwo");
+    cx.set_state("ˇone two three");
+    cx.simulate_keystrokes("d q w");
+    cx.assert_editor_state("one ˇtwo three");
+    cx.set_state("ˇone\n\ntwo");
+    cx.simulate_keystroke("}");
+    cx.assert_editor_state("one\nˇ\ntwo");
+    cx.simulate_keystroke("{");
+    cx.assert_editor_state("ˇone\n\ntwo");
+    cx.set_state("ˇ");
+    cx.write_to_clipboard(ClipboardItem::new_string_with_json_metadata(
+        "row\n".into(),
+        vec![ClipboardSelection {
+            len: 4,
+            is_entire_line: true,
+            first_line_indent: 0,
+            file_path: None,
+            line_range: None,
+        }],
+    ));
+    cx.simulate_keystroke("p");
+    cx.assert_editor_state("ˇrow");
+    cx.set_state("one\nˇtwo");
+    cx.simulate_keystrokes("shift-v p");
+    cx.assert_editor_state("one\nˇrow");
+    cx.set_state("ˇa ˇb");
+    cx.write_to_clipboard(ClipboardItem::new_string("X".into()));
+    cx.simulate_keystroke("p");
+    cx.assert_editor_state("aˇX bˇX");
+}
+
+#[gpui::test]
+async fn test_lightweight_vim_file_endpoint_operator_motions(cx: &mut TestAppContext) {
+    init_test(cx, |_| {});
+    update_test_editor_settings(cx, &|settings| settings.vim_mode = Some(true));
+    cx.update(|cx| {
+        let bindings = settings::KeymapFile::load_asset_allow_partial_failure("keymaps/default-macos.json", cx).expect("macOS keymap should load");
+        cx.bind_keys(bindings);
+        let bindings = settings::KeymapFile::load_asset_allow_partial_failure("keymaps/macos/vscode.json", cx).expect("VS Code keymap should load");
+        cx.bind_keys(bindings);
+    });
+    let mut cx = EditorTestContext::new(cx).await;
+    cx.set_state("one\ntwo\nˇthree\nfour");
+    cx.simulate_keystrokes("0 d g g");
+    cx.assert_editor_state("ˇfour");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("one\ntwo\nˇthree\nfour");
+    cx.simulate_keystrokes("d shift-g");
+    cx.assert_editor_state("one\ntwˇo");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("one\ntwo\nˇthree\nfour");
+    cx.simulate_keystrokes("g g");
+    cx.assert_editor_state("ˇone\ntwo\nthree\nfour");
+    cx.simulate_keystroke("shift-g");
+    cx.assert_editor_state("one\ntwo\nthree\nfouˇr");
+
+    cx.set_state("zero\none\ntwo\nˇthree\nfour\nfive");
+    cx.simulate_keystrokes("2 d g g");
+    cx.assert_editor_state("zero\nˇfour\nfive");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("zero\none\ntwo\nˇthree\nfour\nfive");
+    cx.simulate_keystrokes("2 d shift-g");
+    cx.assert_editor_state("zero\nˇfour\nfive");
+
+    cx.set_state("abˇcd\nef");
+    cx.simulate_keystrokes("d g g");
+    cx.assert_editor_state("ˇ");
+    cx.set_state("abˇcd\nef");
+    cx.simulate_keystrokes("d shift-g");
+    cx.assert_editor_state("ˇ");
+}
+
+#[gpui::test]
+async fn test_lightweight_vim_join_counts_visual_repeat_and_undo(cx: &mut TestAppContext) {
+    init_test(cx, |_| {});
+    update_test_editor_settings(cx, &|settings| settings.vim_mode = Some(true));
+    cx.update(|cx| {
+        let bindings = settings::KeymapFile::load_asset_allow_partial_failure(
+            "keymaps/default-macos.json",
+            cx,
+        )
+        .expect("macOS keymap should load");
+        cx.bind_keys(bindings);
+        let bindings =
+            settings::KeymapFile::load_asset_allow_partial_failure("keymaps/macos/vscode.json", cx)
+                .expect("VS Code keymap should load");
+        cx.bind_keys(bindings);
+    });
+    let mut cx = EditorTestContext::new(cx).await;
+    cx.set_state("oˇne\n  two\nthree\nfour");
+    cx.simulate_keystroke("shift-j");
+    cx.assert_editor_state("oneˇ two\nthree\nfour");
+    cx.simulate_keystroke(".");
+    cx.assert_editor_state("one twoˇ three\nfour");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("oneˇ two\nthree\nfour");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("oˇne\n  two\nthree\nfour");
+
+    cx.set_state("ˇone\ntwo\nthree\nfour\nfive\nsix\nseven");
+    cx.simulate_keystrokes("3 shift-j .");
+    cx.assert_editor_state("one two three fourˇ five\nsix\nseven");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("one twoˇ three\nfour\nfive\nsix\nseven");
+    cx.simulate_keystrokes("2 . .");
+    cx.assert_editor_state("one two three fourˇ five\nsix\nseven");
+
+    cx.set_state("ˇone\ntwo\nthree\nfour\nfive");
+    cx.simulate_keystrokes("shift-v j j shift-j");
+    cx.assert_editor_state("one twoˇ three\nfour\nfive");
+    cx.simulate_keystroke(".");
+    cx.assert_editor_state("one two three fourˇ five");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("one twoˇ three\nfour\nfive");
+    cx.set_state("ˇone\ntwo\nthree");
+    cx.simulate_keystrokes("shift-v j shift-j");
+    cx.assert_editor_state("oneˇ two\nthree");
+
+    cx.set_state("ˇone  \n\ttwo");
+    cx.simulate_keystroke("shift-j");
+    cx.assert_editor_state("one  ˇtwo");
+    cx.set_state("ˇone\n\n two");
+    cx.simulate_keystrokes("3 shift-j");
+    cx.assert_editor_state("oneˇ two");
+    cx.set_state("ˇone\ntwo\n");
+    cx.simulate_keystrokes("3 shift-j");
+    cx.assert_editor_state("one twˇo");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("ˇone\ntwo\n");
+    cx.set_state("ˇone\n  )");
+    cx.simulate_keystroke("shift-j");
+    cx.assert_editor_state("oneˇ)");
+    cx.set_state("ˇ界\n  字");
+    cx.simulate_keystroke("shift-j");
+    cx.assert_editor_state("界ˇ 字");
+
+    cx.set_state("ˇone\ntwo\nˇthree\nfour");
+    cx.simulate_keystroke("shift-j");
+    cx.assert_editor_state("oneˇ two\nthreeˇ four");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("ˇone\ntwo\nˇthree\nfour");
+    cx.set_state("ˇone\nˇtwo\nthree");
+    cx.simulate_keystroke("shift-j");
+    cx.assert_editor_state("one twoˇ three");
+    cx.set_state("ˇone\ntwo\nˇlast");
+    cx.simulate_keystroke("shift-j");
+    cx.assert_editor_state("oneˇ two\nˇlast");
+
+    cx.set_state("ˇone");
+    cx.simulate_keystroke("shift-j");
+    cx.assert_editor_state("ˇone");
+    cx.set_state("ˇ");
+    cx.simulate_keystroke("shift-j");
+    cx.assert_editor_state("ˇ");
+    cx.set_state("ˇone\ntwo");
+    cx.update_editor(|editor, _, _| editor.set_read_only(true));
+    cx.simulate_keystroke("shift-j");
+    cx.assert_editor_state("ˇone\ntwo");
+}
+
+#[gpui::test]
+async fn test_lightweight_vim_matching_brackets_and_operator_repeat(cx: &mut TestAppContext) {
+    init_test(cx, |_| {});
+    update_test_editor_settings(cx, &|settings| settings.vim_mode = Some(true));
+    cx.update(|cx| {
+        let bindings = settings::KeymapFile::load_asset_allow_partial_failure(
+            "keymaps/default-macos.json",
+            cx,
+        )
+        .expect("macOS keymap should load");
+        cx.bind_keys(bindings);
+        let bindings =
+            settings::KeymapFile::load_asset_allow_partial_failure("keymaps/macos/vscode.json", cx)
+                .expect("VS Code keymap should load");
+        cx.bind_keys(bindings);
+    });
+    let mut cx = EditorTestContext::new(cx).await;
+    cx.set_state("ˇ(one [two] {three})");
+    cx.simulate_keystroke("%");
+    cx.assert_editor_state("(one [two] {three}ˇ)");
+    cx.simulate_keystroke("%");
+    cx.assert_editor_state("ˇ(one [two] {three})");
+    cx.set_state("ˇcall(one)");
+    cx.simulate_keystroke("%");
+    cx.assert_editor_state("call(oneˇ)");
+    cx.simulate_keystroke("%");
+    cx.assert_editor_state("callˇ(one)");
+
+    cx.set_state("界ˇ(字)");
+    cx.simulate_keystroke("%");
+    cx.assert_editor_state("界(字ˇ)");
+    cx.simulate_keystroke("%");
+    cx.assert_editor_state("界ˇ(字)");
+    cx.set_state("ˇ{\n [x]\n}");
+    cx.simulate_keystroke("%");
+    cx.assert_editor_state("{\n [x]\nˇ}");
+    cx.simulate_keystroke("%");
+    cx.assert_editor_state("ˇ{\n [x]\n}");
+
+    cx.set_state("ˇ(one) [two] tail");
+    cx.simulate_keystrokes("d % .");
+    cx.assert_editor_state("ˇ tail");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("ˇ [two] tail");
+    cx.set_state("ˇ(one) [two] tail");
+    cx.simulate_keystrokes("c % X escape w .");
+    cx.assert_editor_state("X ˇX tail");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("X ˇ[two] tail");
+    cx.set_state("(oneˇ)");
+    cx.simulate_keystrokes("d %");
+    cx.assert_editor_state("ˇ");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("(oneˇ)");
+
+    cx.set_state("ˇcall(one) tail");
+    cx.simulate_keystrokes("y %");
+    cx.assert_editor_state("ˇcall(one) tail");
+    assert_eq!(
+        cx.read_from_clipboard().and_then(|item| item.text()),
+        Some("call(one)".into())
+    );
+    cx.set_state("ˇplain\n(one)");
+    cx.simulate_keystrokes("c % x");
+    cx.assert_editor_state("ˇlain\n(one)");
+    cx.set_state("ˇ(no pair");
+    cx.simulate_keystrokes("d %");
+    cx.assert_editor_state("ˇ(no pair");
+
+    cx.update_buffer(|buffer, cx| buffer.set_language(Some(rust_lang()), cx));
+    cx.set_state("fn main() ˇ{\n    // } ignored\n    let s = \"}\";\n}\n");
+    cx.run_until_parked();
+    cx.simulate_keystroke("%");
+    cx.assert_editor_state("fn main() {\n    // } ignored\n    let s = \"}\";\nˇ}\n");
+    cx.simulate_keystroke("%");
+    cx.assert_editor_state("fn main() ˇ{\n    // } ignored\n    let s = \"}\";\n}\n");
+}
+
+#[gpui::test]
+async fn test_lightweight_vim_indentation_counts_visual_repeat_and_undo(cx: &mut TestAppContext) {
+    init_test(cx, |settings| {
+        settings.defaults.tab_size = NonZeroU32::new(2);
+        settings.defaults.hard_tabs = Some(false);
+    });
+    update_test_editor_settings(cx, &|settings| settings.vim_mode = Some(true));
+    cx.update(|cx| {
+        let bindings = settings::KeymapFile::load_asset_allow_partial_failure(
+            "keymaps/default-macos.json",
+            cx,
+        )
+        .expect("macOS keymap should load");
+        cx.bind_keys(bindings);
+        let bindings =
+            settings::KeymapFile::load_asset_allow_partial_failure("keymaps/macos/vscode.json", cx)
+                .expect("VS Code keymap should load");
+        cx.bind_keys(bindings);
+    });
+    let mut cx = EditorTestContext::new(cx).await;
+    cx.set_state("oˇne\ntwo\nthree");
+    cx.simulate_keystrokes("2 > > .");
+    cx.assert_editor_state("    ˇone\n    two\nthree");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("  ˇone\n  two\nthree");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("oˇne\ntwo\nthree");
+    cx.simulate_keystrokes("2 > > 2 < <");
+    cx.assert_editor_state("ˇone\ntwo\nthree");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("  ˇone\n  two\nthree");
+
+    cx.set_state("one\ntwo\nˇthree");
+    cx.simulate_keystrokes("3 > > g g .");
+    cx.assert_editor_state("  ˇone\n  two\n    three");
+    cx.simulate_keystrokes("1 . j .");
+    cx.assert_editor_state("    one\n    ˇtwo\n    three");
+
+    cx.set_state("ˇone\ntwo\nthree");
+    cx.simulate_keystrokes("shift-v j >");
+    cx.assert_editor_state("  ˇone\n  two\nthree");
+    cx.simulate_keystrokes("j j .");
+    cx.assert_editor_state("  one\n  two\n  ˇthree");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("  one\n  two\nthˇree");
+    cx.set_state("ˇone\ntwo\nthree");
+    cx.simulate_keystrokes("shift-v j 2 >");
+    cx.assert_editor_state("    ˇone\n    two\nthree");
+    cx.simulate_keystrokes("shift-v j 2 <");
+    cx.assert_editor_state("ˇone\ntwo\nthree");
+
+    cx.set_state("ˇone\nˇtwo\nthree");
+    cx.simulate_keystrokes("> >");
+    cx.assert_editor_state("  ˇone\n  ˇtwo\nthree");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("ˇone\nˇtwo\nthree");
+
+    cx.set_state("ˇabc");
+    cx.simulate_keystrokes("> escape l");
+    cx.assert_editor_state("aˇbc");
+    cx.update_editor(|editor, _, _| editor.set_read_only(true));
+    cx.simulate_keystrokes("> > < < = =");
+    cx.assert_editor_state("aˇbc");
+}
+
+#[gpui::test]
+async fn test_lightweight_vim_autoindent_and_hard_tabs(cx: &mut TestAppContext) {
+    init_test(cx, |settings| {
+        settings.defaults.tab_size = NonZeroU32::new(2);
+        settings.defaults.hard_tabs = Some(true);
+    });
+    update_test_editor_settings(cx, &|settings| settings.vim_mode = Some(true));
+    cx.update(|cx| {
+        let bindings = settings::KeymapFile::load_asset_allow_partial_failure(
+            "keymaps/default-macos.json",
+            cx,
+        )
+        .expect("macOS keymap should load");
+        cx.bind_keys(bindings);
+    });
+    let mut cx = EditorTestContext::new(cx).await;
+    cx.set_state("ˇone\ntwo");
+    cx.simulate_keystrokes("2 > >");
+    cx.assert_editor_state("\tˇone\n\ttwo");
+    cx.simulate_keystrokes("2 < <");
+    cx.assert_editor_state("ˇone\ntwo");
+
+    cx.update_buffer(|buffer, cx| buffer.set_language(Some(rust_lang()), cx));
+    cx.set_state("fn main() {\nˇlet a = 1;\nlet b = 2;\n}");
+    cx.run_until_parked();
+    cx.simulate_keystrokes("= =");
+    cx.assert_editor_state("fn main() {\n\tˇlet a = 1;\nlet b = 2;\n}");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("fn main() {\nˇlet a = 1;\nlet b = 2;\n}");
+    cx.simulate_keystrokes("= = j .");
+    cx.assert_editor_state("fn main() {\n\tlet a = 1;\n\tˇlet b = 2;\n}");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("fn main() {\n\tlet a = 1;\nleˇt b = 2;\n}");
+}
+
+#[gpui::test]
+async fn test_lightweight_vim_character_find_and_repeat(cx: &mut TestAppContext) {
+    init_test(cx, |_| {});
+    update_test_editor_settings(cx, &|settings| settings.vim_mode = Some(true));
+    cx.update(|cx| {
+        let bindings = settings::KeymapFile::load_asset_allow_partial_failure(
+            "keymaps/default-macos.json",
+            cx,
+        )
+        .expect("macOS keymap should load");
+        cx.bind_keys(bindings);
+        let bindings =
+            settings::KeymapFile::load_asset_allow_partial_failure("keymaps/macos/vscode.json", cx)
+                .expect("VS Code keymap should load");
+        cx.bind_keys(bindings);
+    });
+    let mut cx = EditorTestContext::new(cx).await;
+    cx.set_state("ˇab,cd,ef");
+    cx.simulate_keystrokes("f ,");
+    cx.assert_editor_state("abˇ,cd,ef");
+    cx.simulate_keystroke(";");
+    cx.assert_editor_state("ab,cdˇ,ef");
+    cx.simulate_keystroke(",");
+    cx.assert_editor_state("abˇ,cd,ef");
+    cx.simulate_keystroke(";");
+    cx.assert_editor_state("ab,cdˇ,ef");
+    cx.simulate_keystrokes("0 t , ;");
+    cx.assert_editor_state("ab,cˇd,ef");
+    cx.simulate_keystroke(",");
+    cx.assert_editor_state("ab,ˇcd,ef");
+    cx.simulate_keystroke(";");
+    cx.assert_editor_state("ab,cˇd,ef");
+    cx.simulate_keystrokes("0 t , 2 ;");
+    cx.assert_editor_state("ab,cˇd,ef");
+
+    for (target, key) in [
+        ('g', "g"),
+        ('u', "u"),
+        ('0', "0"),
+        (' ', "space"),
+        ('O', "shift-o"),
+        ('/', "/"),
+        ('[', "["),
+        (']', "]"),
+    ] {
+        cx.set_state(&format!("ˇa{target}b{target}c"));
+        cx.simulate_keystrokes(&format!("f {key}"));
+        cx.assert_editor_state(&format!("aˇ{target}b{target}c"));
+        cx.simulate_keystroke(";");
+        cx.assert_editor_state(&format!("a{target}bˇ{target}c"));
+    }
+
+    cx.set_state("ab,cd,eˇf");
+    cx.simulate_keystrokes("shift-f ,");
+    cx.assert_editor_state("ab,cdˇ,ef");
+    cx.simulate_keystrokes("$ shift-t ,");
+    cx.assert_editor_state("ab,cd,ˇef");
+
+    cx.set_state("ˇab\nz");
+    cx.simulate_keystrokes("c f z x");
+    cx.assert_editor_state("ˇb\nz");
+    cx.set_state("ˇab,cd");
+    cx.simulate_keystrokes("f escape l");
+    cx.assert_editor_state("aˇb,cd");
+
+    cx.set_state("ˇab,cd,ef");
+    cx.simulate_keystrokes("d f , .");
+    cx.assert_editor_state("ˇef");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("ˇcd,ef");
+
+    cx.set_state("ˇabc) tail\nxyz)");
+    cx.simulate_keystrokes("c f ) X escape j 0 .");
+    cx.assert_editor_state("X tail\nˇX");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("X tail\nˇxyz)");
+
+    cx.set_state("ˇab,cd,ef,gh,ij");
+    cx.simulate_keystrokes("d 2 f ,");
+    cx.assert_editor_state("ˇef,gh,ij");
+    cx.simulate_keystroke(".");
+    cx.assert_editor_state("ˇij");
+
+    cx.set_state("ˇab,cd,ef");
+    cx.simulate_keystrokes("t , d ;");
+    cx.assert_editor_state("aˇ,ef");
+    cx.set_state("ab,cd,eˇf");
+    cx.simulate_keystrokes("d shift-f ,");
+    cx.assert_editor_state("ab,cdˇf");
+    cx.set_state("ab,cd,eˇf");
+    cx.simulate_keystrokes("d shift-t ,");
+    cx.assert_editor_state("ab,cd,ˇf");
+
+    cx.set_state("ˇab,cd");
+    cx.simulate_keystrokes("y t , p");
+    cx.assert_editor_state("aaˇbb,cd");
+}
+
+#[gpui::test]
+async fn test_lightweight_vim_repeat_changes(cx: &mut TestAppContext) {
+    init_test(cx, |_| {});
+    update_test_editor_settings(cx, &|settings| settings.vim_mode = Some(true));
+    cx.update(|cx| {
+        let bindings = settings::KeymapFile::load_asset_allow_partial_failure(
+            "keymaps/default-macos.json",
+            cx,
+        )
+        .expect("macOS keymap should load");
+        cx.bind_keys(bindings);
+        let bindings =
+            settings::KeymapFile::load_asset_allow_partial_failure("keymaps/macos/vscode.json", cx)
+                .expect("VS Code keymap should load");
+        cx.bind_keys(bindings);
+    });
+    let mut cx = EditorTestContext::new(cx).await;
+    cx.set_state("ˇone longer tail");
+    cx.simulate_keystrokes("c a w x space escape w .");
+    cx.assert_editor_state("x xˇ tail");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("x ˇlonger tail");
+
+    cx.set_state("\"ˇone\" \"longer\"");
+    cx.simulate_keystrokes("c i \" x escape w w .");
+    cx.assert_editor_state("\"x\" \"ˇx\"");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("\"x\" ˇ\"longer\"");
+
+    cx.set_state("ˇone two three four five six");
+    cx.simulate_keystrokes("d w 3 .");
+    cx.assert_editor_state("ˇfive six");
+    cx.simulate_keystroke(".");
+    cx.assert_editor_state("ˇ");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("ˇfive six");
+
+    cx.set_state("ˇabc");
+    cx.simulate_keystrokes("i X Y backspace escape l .");
+    cx.assert_editor_state("XˇXabc");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("Xˇabc");
+
+    cx.set_state("ˇabc");
+    cx.simulate_keystrokes("x i escape y y .");
+    cx.assert_editor_state("ˇc");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("ˇbc");
+
+    cx.set_state("ˇabc");
+    cx.simulate_keystrokes("r X l .");
+    cx.assert_editor_state("XˇXc");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("Xˇbc");
+
+    cx.set_state("ˇabc");
+    cx.write_to_clipboard(ClipboardItem::new_string("X".into()));
+    cx.simulate_keystroke("p");
+    cx.write_to_clipboard(ClipboardItem::new_string("Y".into()));
+    cx.simulate_keystrokes("l .");
+    cx.assert_editor_state("aXbˇYc");
+
+    cx.set_state("ˇrow");
+    cx.simulate_keystrokes("o x escape 2 .");
+    cx.assert_editor_state("row\nx\nx\nˇx");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("row\nˇx");
+}
+
+#[gpui::test]
+async fn test_lightweight_vim_quote_and_bracket_objects(cx: &mut TestAppContext) {
+    init_test(cx, |_| {});
+    update_test_editor_settings(cx, &|settings| settings.vim_mode = Some(true));
+    cx.update(|cx| {
+        for path in ["keymaps/default-macos.json", "keymaps/macos/vscode.json"] {
+            let bindings = settings::KeymapFile::load_asset_allow_partial_failure(path, cx)
+                .expect("keymap should load");
+            cx.bind_keys(bindings);
+        }
+    });
+    let mut cx = EditorTestContext::new(cx).await;
+    cx.set_state("let value = \"hello ˇworld\";");
+    cx.simulate_keystrokes("c i");
+    cx.simulate_keystroke("\"");
+    cx.simulate_keystrokes("n e w escape");
+    cx.assert_editor_state("let value = \"neˇw\";");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("let value = \"hello ˇworld\";");
+
+    cx.set_state("let value = \"oˇne\" tail;");
+    cx.simulate_keystrokes("d a");
+    cx.simulate_keystroke("\"");
+    cx.assert_editor_state("let value = ˇtail;");
+    cx.set_state("call(inner(ˇx), y)");
+    cx.simulate_keystrokes("y 2 i (");
+    assert_eq!(
+        cx.read_from_clipboard().and_then(|item| item.text()),
+        Some("inner(x), y".to_string())
+    );
+    cx.assert_editor_state("call(inner(ˇx), y)");
+    cx.simulate_keystrokes("d i )");
+    cx.assert_editor_state("call(inner(ˇ), y)");
+    cx.set_state("a[ˇone]b");
+    cx.simulate_keystrokes("d a ]");
+    cx.assert_editor_state("aˇb");
+
+    cx.set_state("{\n  ˇone();\n}");
+    cx.simulate_keystrokes("c i {");
+    cx.assert_editor_state("{\n  ˇ\n}");
+    cx.simulate_keystrokes("n e w escape");
+    cx.assert_editor_state("{\n  neˇw\n}");
+    cx.simulate_keystroke("u");
+    cx.assert_editor_state("{\n  ˇone();\n}");
+    cx.set_state("\"ˇ\"");
+    cx.simulate_keystrokes("c i");
+    cx.simulate_keystroke("\"");
+    cx.simulate_keystrokes("x escape");
+    cx.assert_editor_state("\"ˇx\"");
+    cx.set_state("plain ˇtext");
+    cx.simulate_keystrokes("c i");
+    cx.simulate_keystroke("\"");
+    cx.simulate_keystroke("x");
+    cx.assert_editor_state("plain ˇext");
+}
+
+#[gpui::test]
 async fn test_lightweight_vim_line_yank_delete_and_paste_boundaries(
     cx: &mut TestAppContext,
 ) {

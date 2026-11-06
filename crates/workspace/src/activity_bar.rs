@@ -1,29 +1,31 @@
 use crate::dock::{Dock, PanelHandle, activate_panel_button, panel_button_context_menu};
-use crate::{ActivityBarSettings, Workspace};
-use gpui::{
-    Action, Anchor, App, Context, Entity, FocusHandle, Focusable as _, IntoElement, ParentElement,
-    Pixels, Render, SharedString, Styled, Subscription, Task, WeakEntity, Window, px,
+use crate::{
+    ActivityBarSettings, SetActivityBarPosition, ToggleActivityBar, ToggleActivityBarPanelFollow,
+    Workspace,
 };
+use gpui::{
+    Action, Anchor, App, Context, DismissEvent, Entity, FocusHandle, Focusable as _, IntoElement,
+    MouseButton, MouseDownEvent, ParentElement, Pixels, Point, Render, SharedString, Styled,
+    Subscription, Task, WeakEntity, Window, anchored, deferred, px,
+};
+use i18n::t;
 use settings::{ActivityBarPosition, Settings as _, SettingsStore};
 use std::sync::Arc;
 use ui::{
-    ButtonSize, CountBadge, Icon, IconButton, IconName, IconSize, Tooltip, prelude::*,
+    ButtonSize, ContextMenu, CountBadge, Icon, IconButton, IconName, IconSize, Tooltip, prelude::*,
     right_click_menu,
 };
 use util::ResultExt as _;
 
 const DEFAULT_ICON_SIZE: Rems = rems(1.25);
 
-fn on_right(cx: &App) -> bool {
-    ActivityBarSettings::get_global(cx).position == ActivityBarPosition::Right
-}
-
-fn menu_anchors(top: bool, cx: &App) -> (Anchor, Anchor) {
-    match (top, on_right(cx)) {
-        (true, false) => (Anchor::TopLeft, Anchor::TopRight),
-        (true, true) => (Anchor::TopRight, Anchor::TopLeft),
-        (false, false) => (Anchor::BottomLeft, Anchor::BottomRight),
-        (false, true) => (Anchor::BottomRight, Anchor::BottomLeft),
+fn menu_anchors(cx: &App) -> (Anchor, Anchor) {
+    match ActivityBarSettings::get_global(cx).position {
+        ActivityBarPosition::Left => (Anchor::TopLeft, Anchor::TopRight),
+        ActivityBarPosition::Right => (Anchor::TopRight, Anchor::TopLeft),
+        ActivityBarPosition::TopLeft | ActivityBarPosition::TopRight => {
+            (Anchor::TopLeft, Anchor::BottomLeft)
+        }
     }
 }
 
@@ -59,13 +61,14 @@ const DEFAULT_ORDER: [&str; 6] = [
 
 const ORDER_KEY: &str = "activity_bar_order";
 
-/// A vertical bar on the left edge of the window with one button per left or right
-/// dock panel, like the activity bar in VS Code.
+/// A bar on the edge of the window with one button per left or right dock panel,
+/// like the activity bar in VS Code.
 pub struct ActivityBar {
     workspace: WeakEntity<Workspace>,
     left_dock: Entity<Dock>,
     right_dock: Entity<Dock>,
     order: Vec<String>,
+    layout_menu: Option<(Entity<ContextMenu>, Point<Pixels>)>,
     _serialization: Task<()>,
     _subscriptions: Vec<Subscription>,
 }
@@ -160,6 +163,7 @@ impl ActivityBar {
             left_dock,
             right_dock,
             order: DEFAULT_ORDER.iter().map(|key| key.to_string()).collect(),
+            layout_menu: None,
             _serialization: Task::ready(()),
             _subscriptions: subscriptions,
         }
@@ -254,6 +258,65 @@ impl ActivityBar {
         true
     }
 
+    fn open_layout_menu(
+        &mut self,
+        event: &MouseDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        cx.stop_propagation();
+        window.prevent_default();
+        let current_position = ActivityBarSettings::get_global(cx).position;
+        let follows = ActivityBarSettings::get_global(cx).panel_follows_position;
+        let menu = ContextMenu::build(window, cx, |menu, _, _| {
+            menu.submenu(t!("Activity Bar Position"), move |mut menu, _, _| {
+                for (label, position) in [
+                    (t!("Left"), ActivityBarPosition::Left),
+                    (t!("Right"), ActivityBarPosition::Right),
+                    (t!("Top of Left Side Bar"), ActivityBarPosition::TopLeft),
+                    (t!("Top of Right Side Bar"), ActivityBarPosition::TopRight),
+                ] {
+                    menu = menu.action_checked(
+                        label,
+                        Box::new(SetActivityBarPosition { position }),
+                        position == current_position,
+                    );
+                }
+                menu
+            })
+            .separator()
+            .action_checked(
+                t!("Panels Follow Activity Bar"),
+                Box::new(ToggleActivityBarPanelFollow),
+                follows,
+            )
+            .action(t!("Hide Activity Bar"), Box::new(ToggleActivityBar))
+        });
+        let activity_bar = cx.entity().downgrade();
+        let previous_focus = window.focused(cx);
+        window
+            .subscribe(&menu, cx, move |menu, _: &DismissEvent, window, cx| {
+                if menu.focus_handle(cx).contains_focused(window, cx)
+                    && let Some(focus) = previous_focus.as_ref()
+                {
+                    window.focus(focus, cx);
+                }
+                activity_bar
+                    .update(cx, |bar, cx| {
+                        bar.layout_menu = None;
+                        cx.notify();
+                    })
+                    .log_err();
+            })
+            .detach();
+        let focus = menu.focus_handle(cx);
+        window.on_next_frame(move |window, _cx| {
+            window.on_next_frame(move |window, cx| window.focus(&focus, cx));
+        });
+        self.layout_menu = Some((menu, event.position));
+        cx.notify();
+    }
+
     fn render_entry(
         &self,
         entry: ActivityBarEntry,
@@ -261,6 +324,10 @@ impl ActivityBar {
         cx: &mut Context<Self>,
     ) -> gpui::AnyElement {
         let key = entry.key();
+        let horizontal = matches!(
+            ActivityBarSettings::get_global(cx).position,
+            ActivityBarPosition::TopLeft | ActivityBarPosition::TopRight
+        );
         let (action, tooltip, is_active, focus_handle) = entry.button_state(window, cx);
         let (icon, icon_tooltip) = match &entry {
             ActivityBarEntry::Panel {
@@ -315,7 +382,7 @@ impl ActivityBar {
                             .is_none_or(|dragged_position| position < dragged_position)
                     };
                 let order = self.order.clone();
-                let (menu_anchor, menu_attach) = menu_anchors(true, cx);
+                let (menu_anchor, menu_attach) = menu_anchors(cx);
                 let on_drop =
                     cx.listener(move |this, dragged: &DraggedActivityBarEntry, window, cx| {
                         this.move_entry(dragged.key, key, window, cx);
@@ -340,9 +407,17 @@ impl ActivityBar {
                                     .bg(colors.drop_target_background)
                                     .border_color(colors.drop_target_border);
                                 if drop_indicator_above(dragged, &order) {
-                                    style.border_t_2()
+                                    if horizontal {
+                                        style.border_l_2()
+                                    } else {
+                                        style.border_t_2()
+                                    }
                                 } else {
-                                    style.border_b_2()
+                                    if horizontal {
+                                        style.border_r_2()
+                                    } else {
+                                        style.border_b_2()
+                                    }
                                 }
                             })
                             .on_drop(on_drop)
@@ -360,28 +435,55 @@ impl ActivityBar {
 impl Render for ActivityBar {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let colors = cx.theme().colors();
-        let bar = v_flex()
-            .id("activity-bar")
-            .flex_none()
-            .w(bar_width(window, cx))
-            .h_full()
-            .items_center()
-            .gap_2()
-            .py_1()
-            .bg(colors.status_bar_background)
-            .map(|bar| {
-                if on_right(cx) {
-                    bar.border_l_1()
-                } else {
-                    bar.border_r_1()
-                }
-            })
-            .border_color(colors.border);
+        let position = ActivityBarSettings::get_global(cx).position;
+        let bar = match position {
+            ActivityBarPosition::TopLeft | ActivityBarPosition::TopRight => h_flex()
+                .id("activity-bar")
+                .flex_none()
+                .w_full()
+                .min_w_0()
+                .overflow_x_scroll()
+                .h(button_height(window, cx) + px(8.))
+                .items_center()
+                .gap_2()
+                .px_1()
+                .py_1()
+                .bg(colors.status_bar_background)
+                .border_b_1()
+                .border_color(colors.border),
+            ActivityBarPosition::Left | ActivityBarPosition::Right => v_flex()
+                .id("activity-bar")
+                .flex_none()
+                .w(bar_width(window, cx))
+                .h_full()
+                .items_center()
+                .gap_2()
+                .py_1()
+                .bg(colors.status_bar_background)
+                .map(|bar| {
+                    if position == ActivityBarPosition::Right {
+                        bar.border_l_1()
+                    } else {
+                        bar.border_r_1()
+                    }
+                })
+                .border_color(colors.border),
+        };
         let mut buttons = Vec::new();
         for entry in self.entries(window, cx) {
             buttons.push(self.render_entry(entry, window, cx));
         }
         bar.children(buttons)
+            .on_mouse_down(MouseButton::Right, cx.listener(Self::open_layout_menu))
+            .children(self.layout_menu.as_ref().map(|(menu, position)| {
+                deferred(
+                    anchored()
+                        .position(*position)
+                        .snap_to_window_with_margin(px(8.))
+                        .child(menu.clone()),
+                )
+                .with_priority(1)
+            }))
     }
 }
 

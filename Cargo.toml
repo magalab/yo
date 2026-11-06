@@ -309,7 +309,6 @@ remote = { path = "crates/remote" }
 remote_connection = { path = "crates/remote_connection" }
 remote_server = { path = "crates/remote_server" }
 reqwest_client = { path = "crates/reqwest_client" }
-rodio = { git = "https://github.com/RustAudio/rodio", rev = "e50e726ddd0292f6ef9de0dda6b90af4ed1fb66a", features = ["wav", "playback", "wav_output", "recording"] }
 rope = { path = "crates/rope" }
 rpc = { path = "crates/rpc" }
 scheduler = { path = "crates/scheduler" }
@@ -381,14 +380,11 @@ ashpd = { version = "0.13", default-features = false, features = [
     "trash"
 ] }
 async-channel = "2.5.0"
-async-compat = "0.2.1"
 async-compression = { version = "0.4", features = ["bzip2", "gzip", "futures-io"] }
 async-fs = "2.1"
-async-io = "2.6.0"
 async-lock = "3.4.2"
 async-pipe = { git = "https://github.com/zed-industries/async-pipe-rs", rev = "82d00a04211cf4e1236029aa03e6b6ce2a74c553" }
 # `unstable` is required to compile async-tar's Windows symlink support.
-async-process = "2.5.0"
 async-recursion = "1.0.0"
 async-std = { version = "1.12", features = ["unstable"] }
 async-tar = { git = "https://github.com/zed-industries/async-tar", rev = "bd3ad6f89df9a9da7a8535958756d6bf465936a0" }
@@ -396,32 +392,18 @@ async-task = "4.7"
 async-trait = "0.1"
 async-tungstenite = "0.33"
 async_zip = { version = "0.0.18", features = ["deflate", "deflate64"] }
-aws-config = { version = "1.8.10", features = ["behavior-version-latest"] }
-aws-credential-types = { version = "1.2.8", features = [
-    "hardcoded-credentials",
-] }
-aws-sdk-bedrockruntime = { version = "1.112.0", default-features = false, features = [
-    "behavior-version-latest",
-    "default-https-client",
-    "rt-tokio",
-] }
-aws-sigv4 = { version = "1.4.0", features = ["http1"] }
-aws-smithy-runtime-api = { version = "1.9.2", features = ["http-1x", "client"] }
-aws-smithy-types = { version = "1.3.4", features = ["http-body-1-x"] }
 backtrace = "0.3"
 base64 = "0.22"
 betlang = "0.1.1"
 bitflags = "2.6.0"
 block = "0.1"
 block2 = "0.6"
-brush-parser = "0.3"
 bytes = "1.0"
 cargo_metadata = "0.19"
 cargo_toml = "0.21"
 cbindgen = { version = "0.28.0", default-features = false }
 chardetng = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
-ciborium = "0.2"
 circular-buffer = "1.0"
 clap = { version = "4.4", features = ["derive", "wrap_help"] }
 clap_complete = { version = "4.4" }
@@ -438,10 +420,8 @@ core-text = "21"
 core-video = { version = "0.5.2", features = ["metal"] }
 cpal = "0.17"
 criterion = { version = "0.5", features = ["html_reports"] }
-crossbeam = "0.8.4"
 ctor = "1.0.12"
 dap-types = { git = "https://github.com/zed-industries/dap-types", rev = "1b461b310481d01e02b2603c16d7144b926339f8" }
-dashmap = "6.0"
 derive_more = { version = "2.1.1", features = [
     "add",
     "add_assign",
@@ -473,17 +453,14 @@ futures = "0.3.32"
 futures-concurrency = "7.7.1"
 futures-lite = "1.13"
 globset = "0.4"
-handlebars = "4.3"
 hdrhistogram = { version = "7", default-features = false }
 heapless = "0.9.2"
 heck = "0.5"
-heed = { version = "0.21.0", features = ["read-txn-no-tls"] }
 hex = "0.4.3"
 html5ever = "0.39"
 http = "1.1"
 http-body = "1.0"
 human_bytes = "0.4.1"
-idna = "1.0"
 ignore = "0.4.22"
 # image's default features minus "avif", which only adds an encoder (rav1e);
 # decoding AVIF would additionally need the non-default "avif-native" feature.
@@ -511,22 +488,16 @@ inventory = "0.3.19"
 itertools = "0.14.0"
 js-sys = "0.3"
 json_dotpath = "1.1"
-jsonschema = { version = "0.51", default-features = false }
-jsonwebtoken = "10.0"
 libc = "0.2"
 libsqlite3-sys = { version = "0.30.1", features = ["bundled"] }
-libwebrtc = "0.3.26"
 linkify = "0.10.0"
 log = { version = "0.4.16", features = ["kv_unstable_serde", "serde"] }
-lru = "0.16"
 lsp-types = { git = "https://github.com/zed-industries/lsp-types", rev = "f1783e63a7f4eb4397bf51d4148b4895a1f7ab16" }
 mach2 = "0.5"
 markup5ever_rcdom = "0.39"
 mermaid-rs-renderer = { version = "=0.3.1", default-features = false }
 metal = "0.33"
-mime = "0.3.17"
 moka = { version = "0.12.10", features = ["sync"] }
-nanoid = "0.4"
 nix = "0.29"
 notify-rust = "4"
 nucleo = "0.5"
@@ -572,12 +543,10 @@ objc2-foundation = { version = "=0.3.2", default-features = false, features = [
     "std",
 ] }
 objc2-user-notifications = "0.3"
-open = "5.0.0"
 ordered-float = "2.1.1"
 palette = { version = "0.7.5", default-features = false, features = ["std"] }
 parking_lot = "0.12.1"
 parse_int = "0.9"
-partial-json-fixer = "0.5.3"
 pathfinder_geometry = "0.5"
 pciid-parser = "0.8.0"
 percent-encoding = "2.3.2"
@@ -588,7 +557,6 @@ pet-fs = { git = "https://github.com/microsoft/python-environment-tools.git", re
 pet-poetry = { git = "https://github.com/microsoft/python-environment-tools.git", rev = "bb8e04607b96a3865d6aa4bb2a5a5a82ce05b5f0" }
 pet-reporter = { git = "https://github.com/microsoft/python-environment-tools.git", rev = "bb8e04607b96a3865d6aa4bb2a5a5a82ce05b5f0" }
 pet-virtualenv = { git = "https://github.com/microsoft/python-environment-tools.git", rev = "bb8e04607b96a3865d6aa4bb2a5a5a82ce05b5f0" }
-portable-pty = "0.9.0"
 postage = { version = "0.5", features = ["futures-traits"] }
 pretty_assertions = { version = "1.3.0", features = ["unstable"] }
 proc-macro2 = "1.0.93"
@@ -599,11 +567,8 @@ proptest = { git = "https://github.com/proptest-rs/proptest", rev = "3dca198a8fe
 proptest-derive = "0.8.0"
 prost = "0.14"
 prost-build = "0.14"
-prost-types = "0.14"
 protox = "0.9"
-proxyvars = "0.2"
 pulldown-cmark = { version = "0.13.0", default-features = false }
-quick-xml = "0.38"
 quote = "1.0.9"
 rand = "0.9"
 raw-window-handle = "0.6"
@@ -633,7 +598,6 @@ rustls = { version = "0.23.26" }
 rustls-platform-verifier = "0.7"
 
 schemars = { version = "1.0", features = ["indexmap2"] }
-seccompiler = "0.5"
 semver = { version = "1.0", features = ["serde"] }
 serde = { version = "1.0.221", features = ["derive", "rc"] }
 serde_json = { version = "1.0.144", features = ["preserve_order", "raw_value"] }
@@ -643,8 +607,6 @@ serde_json_lenient = { version = "0.2", features = [
 ] }
 serde_path_to_error = "0.1.17"
 serde_urlencoded = "0.7"
-serde_yaml = "0.9.34"
-serde_yaml_ng = "0.10"
 sha2 = "0.10"
 shellexpand = "3.1"
 shlex = "1.3.0"
@@ -680,7 +642,6 @@ toml_edit = { version = "0.22", default-features = false, features = [
     "parse",
     "serde",
 ] }
-tower-http = "0.4.4"
 tree-sitter = { git = "https://github.com/tree-sitter/tree-sitter", rev = "43623ec9bf0eaaf7113285c46e8a09018f181b18" }
 tracing = "0.1.40"
 tree-sitter-bash = "0.25.1"
@@ -738,12 +699,10 @@ wasmtime-wasi = "48"
 wax = "0.7"
 web-time = "1.1.0"
 webpki-roots = "1.0.8"
-webrtc-sys = "0.3.23"
 wgpu = "29.0.4"
 which = "8"
 windows-core = "0.61"
 windows-registry = "0.6.0"
-yaml-rust2 = "0.8"
 zeroize = "1.8"
 zstd = "0.11"
 

@@ -26,3 +26,6 @@ tree-sitter.workspace = true
 
 [features]
 test-support = []
+
+[lints]
+workspace = true

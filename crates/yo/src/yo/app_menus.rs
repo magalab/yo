@@ -27,6 +27,33 @@ pub fn app_menus(cx: &mut App) -> Vec<Menu> {
         MenuItem::action(t!("Toggle Right Dock"), workspace::ToggleRightDock),
         MenuItem::action(t!("Toggle Bottom Dock"), workspace::ToggleBottomDock),
         MenuItem::action(t!("Toggle All Docks"), workspace::ToggleAllDocks),
+        MenuItem::action(t!("Toggle Activity Bar"), workspace::ToggleActivityBar),
+        MenuItem::submenu(Menu::new(t!("Activity Bar Position")).items([
+            MenuItem::action(
+                t!("Left"),
+                workspace::SetActivityBarPosition {
+                    position: settings::ActivityBarPosition::Left,
+                },
+            ),
+            MenuItem::action(
+                t!("Right"),
+                workspace::SetActivityBarPosition {
+                    position: settings::ActivityBarPosition::Right,
+                },
+            ),
+            MenuItem::action(
+                t!("Top of Left Side Bar"),
+                workspace::SetActivityBarPosition {
+                    position: settings::ActivityBarPosition::TopLeft,
+                },
+            ),
+            MenuItem::action(
+                t!("Top of Right Side Bar"),
+                workspace::SetActivityBarPosition {
+                    position: settings::ActivityBarPosition::TopRight,
+                },
+            ),
+        ])),
         MenuItem::submenu(Menu {
             name: t!("Editor Layout"),
             disabled: false,

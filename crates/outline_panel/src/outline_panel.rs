@@ -38,8 +38,7 @@ use std::{
         Arc, OnceLock,
         atomic::{self, AtomicBool},
     },
-    time::Duration,
-    u32,
+    time::Duration
 };
 
 use outline_panel_settings::{DockSide, FolderIndicator, OutlinePanelSettings, ShowIndentGuides};

@@ -8,8 +8,6 @@ use gpui::{
 };
 use i18n::t;
 use notifications::status_toast::StatusToast;
-use schemars::JsonSchema;
-use serde::Deserialize;
 use settings::{SettingsStore, VsCodeSettingsSource};
 use std::sync::Arc;
 use ui::{
@@ -32,23 +30,7 @@ mod basics_page;
 pub mod multibuffer_hint;
 mod theme_preview;
 
-/// Imports settings from Visual Studio Code.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Deserialize, JsonSchema, Action)]
-#[action(namespace = yo)]
-#[serde(deny_unknown_fields)]
-pub struct ImportVsCodeSettings {
-    #[serde(default)]
-    pub skip_prompt: bool,
-}
-
-/// Imports settings from Cursor editor.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Deserialize, JsonSchema, Action)]
-#[action(namespace = yo)]
-#[serde(deny_unknown_fields)]
-pub struct ImportCursorSettings {
-    #[serde(default)]
-    pub skip_prompt: bool,
-}
+pub use app_actions::{ImportCursorSettings, ImportVsCodeSettings};
 
 pub const FIRST_OPEN: &str = "first_open";
 

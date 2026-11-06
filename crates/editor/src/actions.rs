@@ -5,6 +5,14 @@ use project::project_settings::GoToDiagnosticSeverityFilter;
 use schemars::JsonSchema;
 use util::serde::default_true;
 
+/// Supplies a key to the lightweight Vim command parser.
+#[derive(PartialEq, Clone, Deserialize, JsonSchema, Action)]
+#[action(namespace = editor)]
+#[serde(deny_unknown_fields)]
+pub struct VimInput {
+    pub key: String,
+}
+
 /// Selects the next occurrence of the current selection.
 #[derive(PartialEq, Clone, Deserialize, Default, JsonSchema, Action)]
 #[action(namespace = editor)]

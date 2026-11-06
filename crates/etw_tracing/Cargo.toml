@@ -21,3 +21,6 @@ workspace.workspace = true
 wprcontrol = { git = "https://github.com/zed-industries/wprcontrol", rev = "cd811f7" }
 windows-core = "0.61"
 windows.workspace = true
+
+[lints]
+workspace = true

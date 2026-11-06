@@ -485,8 +485,8 @@ pub struct ExtensionsSettingsContent {
     strum::VariantArray,
 )]
 pub enum BaseKeymapContent {
-    #[default]
     Zed,
+    #[default]
     VSCode,
     JetBrains,
     SublimeText,

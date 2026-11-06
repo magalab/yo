@@ -206,4 +206,11 @@
       "ctrl-alt-right": "pane::GoForward",
     },
   },
+  {
+    "context": "VimControl && !menu",
+    "bindings": {
+      "ctrl-d": "editor::HalfPageDown",
+      "ctrl-u": "editor::HalfPageUp",
+    },
+  },
 ]

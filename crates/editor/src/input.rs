@@ -70,6 +70,7 @@ impl Editor {
     }
 
     pub fn handle_input(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.validate_lightweight_vim_insert(false, false, cx);
         let text: Arc<str> = text.into();
 
         if self.read_only(cx) {

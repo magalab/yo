@@ -82,4 +82,11 @@
     "context": "Dock",
     "bindings": {},
   },
+  {
+    "context": "VimControl && !menu",
+    "bindings": {
+      "ctrl-d": "editor::HalfPageDown",
+      "ctrl-u": "editor::HalfPageUp",
+    },
+  },
 ]

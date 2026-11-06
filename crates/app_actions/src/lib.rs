@@ -12,6 +12,24 @@ use std::{path::PathBuf, sync::Arc};
 // https://github.com/mmastrac/rust-ctor/issues/280
 pub fn init() {}
 
+/// Imports settings from Visual Studio Code.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Deserialize, JsonSchema, Action)]
+#[action(namespace = yo)]
+#[serde(deny_unknown_fields)]
+pub struct ImportVsCodeSettings {
+    #[serde(default)]
+    pub skip_prompt: bool,
+}
+
+/// Imports settings from Cursor editor.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Deserialize, JsonSchema, Action)]
+#[action(namespace = yo)]
+#[serde(deny_unknown_fields)]
+pub struct ImportCursorSettings {
+    #[serde(default)]
+    pub skip_prompt: bool,
+}
+
 /// Opens a URL in the system's default web browser.
 #[derive(Clone, PartialEq, Deserialize, JsonSchema, Action)]
 #[action(namespace = yo)]

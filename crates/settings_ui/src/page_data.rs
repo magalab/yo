@@ -5,6 +5,7 @@ use std::sync::Arc;
 use strum::IntoDiscriminant as _;
 use theme::SystemAppearance;
 use ui::IntoElement;
+use util::ResultExt as _;
 
 use crate::{
     ActionLink, DynamicItem, PROJECT, SettingField, SettingItem, SettingsFieldMetadata,
@@ -1415,8 +1416,45 @@ fn keymap_page() -> SettingsPage {
         ]
     }
 
-    let items: Box<[SettingsPageItem]> =
-        concat_sections!(keybindings_section(), base_keymap_section(),);
+    fn import_settings_section() -> [SettingsPageItem; 3] {
+        let import_link = |title, action: fn() -> Box<dyn gpui::Action>| {
+            SettingsPageItem::ActionLink(ActionLink {
+                title,
+                description: Some(n!(
+                    "Import supported editor settings and use the VS Code keymap."
+                )),
+                button_text: n!("Import"),
+                on_click: Arc::new(move |settings_window, window, cx| {
+                    let Some(original_window) = settings_window.original_window else {
+                        return;
+                    };
+                    original_window
+                        .update(cx, |_workspace, original_window, cx| {
+                            original_window.dispatch_action(action(), cx);
+                            original_window.activate_window();
+                        })
+                        .log_err();
+                    window.remove_window();
+                }),
+                files: USER,
+            })
+        };
+        [
+            SettingsPageItem::SectionHeader(n!("Import Settings")),
+            import_link(n!("Import VS Code Settings"), || {
+                Box::new(app_actions::ImportVsCodeSettings::default())
+            }),
+            import_link(n!("Import Cursor Settings"), || {
+                Box::new(app_actions::ImportCursorSettings::default())
+            }),
+        ]
+    }
+
+    let items: Box<[SettingsPageItem]> = concat_sections!(
+        keybindings_section(),
+        base_keymap_section(),
+        import_settings_section(),
+    );
 
     SettingsPage {
         title: n!("Keymap"),
@@ -3398,7 +3436,7 @@ fn window_and_layout_page() -> SettingsPage {
             }),
             SettingsPageItem::SettingItem(SettingItem {
                 title: n!("Activity Bar Position"),
-                description: n!("Which side of the window the activity bar is on."),
+                description: n!("Which edge of the window the activity bar is on."),
                 field: Box::new(SettingField {
                     json_path: Some("activity_bar.position"),
                     pick: |settings_content| {

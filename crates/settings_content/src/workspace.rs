@@ -548,6 +548,9 @@ pub enum ActivityBarPosition {
     #[default]
     Left,
     Right,
+    #[serde(alias = "top")]
+    TopLeft,
+    TopRight,
 }
 
 #[with_fallible_options]
@@ -558,10 +561,13 @@ pub struct ActivityBarSettingsContent {
     ///
     /// Default: true
     pub show: Option<bool>,
-    /// Which side of the window the activity bar is on.
+    /// Which edge of the window the activity bar is on.
     ///
     /// Default: left
     pub position: Option<ActivityBarPosition>,
+    /// Whether side panels open on the activity bar's side. When unset, enabled
+    /// for top positions and disabled for vertical positions.
+    pub panel_follows_position: Option<bool>,
     /// Size of the activity bar icons, in pixels. The bar grows or shrinks
     /// to fit them. When unset, the icons are 1.25 times the UI font size.
     ///

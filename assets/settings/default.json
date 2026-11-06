@@ -28,7 +28,7 @@
   // 7. "Emacs"
   // 8. "Cursor"
   // 9. "None"
-  "base_keymap": "Zed",
+  "base_keymap": "VSCode",
   // The name of a font to use for rendering text in the editor
   "buffer_font_family": "JetBrains Mono",
   // Set the buffer text's font fallbacks, this will be merged with
@@ -1568,8 +1568,11 @@
     // Whether to show the activity bar. It holds the buttons for the left
     // and right dock panels, like the activity bar in VS Code.
     "show": true,
-    // Which side of the window the activity bar is on: "left" or "right".
+    // Position: "left", "right", "top_left", or "top_right".
     "position": "left",
+    // Side panels follow the activity bar by default in top positions.
+    // Set this explicitly to override the behavior for any position.
+    // "panel_follows_position": true,
     // Size of the activity bar icons, in pixels (12 to 48). The bar grows or
     // shrinks to fit them. Leave it unset to make the icons 1.25 times the UI
     // font size, so they follow it.

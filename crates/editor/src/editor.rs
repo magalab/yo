@@ -32,6 +32,7 @@ mod inlays;
 pub mod items;
 mod jsx_tag_auto_close;
 mod linked_editing_ranges;
+mod lightweight_vim;
 mod lsp_ext;
 mod mouse_context_menu;
 pub mod movement;
@@ -908,6 +909,14 @@ struct SettledScrollRange {
 /// See the [module level documentation](self) for more information.
 pub struct Editor {
     lightweight_vim_mode: LightweightVimMode,
+    lightweight_vim_input: lightweight_vim::InputState,
+    lightweight_vim_last_find: Option<lightweight_vim::CharacterFind>,
+    lightweight_vim_last_search: Option<(String, bool)>,
+    lightweight_vim_find_subscription: Option<Subscription>,
+    lightweight_vim_change_transaction: Option<TransactionId>,
+    lightweight_vim_last_change: Option<LightweightVimChange>,
+    lightweight_vim_insert_session: Option<LightweightVimInsertSession>,
+    lightweight_vim_replaying: bool,
     vim_mode_enabled: bool,
     focus_handle: FocusHandle,
     last_focused_descendant: Option<WeakFocusHandle>,
@@ -1705,10 +1714,1793 @@ impl Render for GutterButtonTooltip {
     }
 }
 
+#[derive(Clone, Copy)]
+enum LightweightVimInsertion {
+    Before,
+    After,
+    LineStart,
+    LineEnd,
+    Above,
+    Below,
+}
+
+#[derive(Clone)]
+enum LightweightVimChangeKind {
+    Edit {
+        operator: lightweight_vim::Operator,
+        target: lightweight_vim::Target,
+    },
+    Insert(LightweightVimInsertion),
+    Paste {
+        before: bool,
+    },
+    Replace(String),
+    Join {
+        line_counts: Vec<usize>,
+    },
+    Indent {
+        kind: lightweight_vim::Indentation,
+        levels: usize,
+        line_counts: Vec<usize>,
+    },
+}
+
+#[derive(Clone)]
+struct LightweightVimChange {
+    kind: LightweightVimChangeKind,
+    count: usize,
+    inserted: Vec<String>,
+    cursors: Vec<Option<usize>>,
+}
+
+struct LightweightVimInsertSession {
+    change: LightweightVimChange,
+    ranges: Vec<(multi_buffer::Anchor, multi_buffer::Anchor)>,
+    changed: bool,
+    valid: bool,
+}
+
+fn lightweight_vim_visual_range(
+    text: &str,
+    selection: &Selection<MultiBufferOffset>,
+    line_mode: bool,
+) -> Option<(Range<usize>, bool)> {
+    let start = selection.head().0.min(selection.tail().0);
+    let end = selection.head().0.max(selection.tail().0);
+    if line_mode {
+        let range_start = lightweight_vim::edit_range(
+            text,
+            start,
+            lightweight_vim::Operator::Delete,
+            lightweight_vim::Target::Lines,
+            1,
+        )
+        .0
+        .start;
+        let range_end = lightweight_vim::edit_range(
+            text,
+            end,
+            lightweight_vim::Operator::Delete,
+            lightweight_vim::Target::Lines,
+            1,
+        )
+        .0
+        .end;
+        (range_start < range_end).then_some((range_start..range_end, true))
+    } else {
+        let end = if start == end {
+            lightweight_vim::next(text, start)
+        } else {
+            lightweight_vim::next(text, end)
+        };
+        (start < end).then_some((start..end, false))
+    }
+}
+
 impl Editor {
     pub(crate) fn set_lightweight_vim_mode(&mut self, mode: LightweightVimMode) {
+        self.lightweight_vim_input.clear();
+        self.lightweight_vim_find_subscription.take();
         self.lightweight_vim_mode = mode;
-        self.input_enabled = matches!(mode, LightweightVimMode::Insert | LightweightVimMode::ReplaceChar);
+        self.input_enabled = matches!(
+            mode,
+            LightweightVimMode::Insert | LightweightVimMode::ReplaceChar
+        );
+    }
+
+    pub(crate) fn vim_input(
+        &mut self,
+        action: &VimInput,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        use lightweight_vim::{Command, Motion, Operator, Target};
+        if !self.vim_mode_enabled
+            || !matches!(
+                self.lightweight_vim_mode,
+                LightweightVimMode::Normal | LightweightVimMode::Visual
+            )
+        {
+            cx.propagate();
+            return;
+        }
+        if self.lightweight_vim_mode == LightweightVimMode::Visual && action.key == "o" {
+            self.change_selections(Default::default(), window, cx, |selections| {
+                selections.move_with(&mut |_, selection| {
+                    selection.reversed = !selection.reversed;
+                });
+            });
+            cx.notify();
+            return;
+        }
+        if self.lightweight_vim_mode == LightweightVimMode::Visual
+            && matches!(action.key.as_str(), "c" | "x")
+        {
+            self.vim_edit(
+                if action.key == "c" {
+                    lightweight_vim::Operator::Change
+                } else {
+                    lightweight_vim::Operator::Delete
+                },
+                lightweight_vim::Target::Motion(lightweight_vim::Motion::Right),
+                1,
+                window,
+                cx,
+            );
+            cx.notify();
+            return;
+        }
+        let command = if self.lightweight_vim_mode == LightweightVimMode::Visual {
+            self.lightweight_vim_input.feed_visual(&action.key)
+        } else {
+            self.lightweight_vim_input.feed(&action.key)
+        };
+        let Some(command) = command else {
+            if self.lightweight_vim_input.waiting_for_character()
+                && self.lightweight_vim_find_subscription.is_none()
+            {
+                // Targets such as g, space, or digits must bypass existing bindings and chord prefixes.
+                let listener = cx.listener(|editor, event: &gpui::KeystrokeEvent, window, cx| {
+                    if !editor.focus_handle.is_focused(window) {
+                        return;
+                    }
+                    if !editor.lightweight_vim_input.waiting_for_character() {
+                        editor.lightweight_vim_find_subscription.take();
+                        return;
+                    }
+                    let keystroke = &event.keystroke;
+                    if keystroke.key == "escape" {
+                        editor.lightweight_vim_input.clear();
+                        editor.lightweight_vim_find_subscription.take();
+                        cx.stop_propagation();
+                        cx.notify();
+                    } else if !keystroke.modifiers.control
+                        && !keystroke.modifiers.platform
+                        && !keystroke.modifiers.alt
+                        && let Some(key) = keystroke.key_char.as_deref()
+                    {
+                        editor.vim_input(
+                            &VimInput {
+                                key: key.to_string(),
+                            },
+                            window,
+                            cx,
+                        );
+                        cx.stop_propagation();
+                    } else {
+                        editor.lightweight_vim_input.clear();
+                        editor.lightweight_vim_find_subscription.take();
+                        cx.notify();
+                    }
+                });
+                self.lightweight_vim_find_subscription = Some(cx.intercept_keystrokes(listener));
+            }
+            cx.notify();
+            return;
+        };
+        self.lightweight_vim_find_subscription.take();
+        match command {
+            Command::Join { count } => self.vim_join(count, None, window, cx),
+            Command::Transform { case, target, count } => self.vim_transform(case, target, count, window, cx),
+            Command::Comment { target, count } => self.vim_comment(target, count, window, cx),
+            Command::MatchBracket { operator } => self.vim_match_bracket(operator, window, cx),
+            Command::Indent { kind, count } => self.vim_indent(kind, count, 1, None, window, cx),
+            Command::Find {
+                find,
+                operator,
+                count,
+            } => {
+                self.lightweight_vim_last_find = Some(find);
+                self.vim_find(find, operator, count, false, window, cx);
+            }
+            Command::RepeatFind {
+                reverse,
+                operator,
+                count,
+            } => {
+                if let Some(mut find) = self.lightweight_vim_last_find {
+                    find.backward ^= reverse;
+                    self.vim_find(find, operator, count, true, window, cx);
+                }
+            }
+            Command::SearchWord { backwards } => {
+                self.vim_search_word(backwards, window, cx)
+            }
+            Command::RepeatSearch { reverse } => {
+                if self.has_background_highlights(HighlightKey::BufferSearchHighlights) {
+                    if reverse {
+                        window.dispatch_action(
+                            app_actions::search::SelectPreviousMatch.boxed_clone(),
+                            cx,
+                        );
+                    } else {
+                        window.dispatch_action(
+                            app_actions::search::SelectNextMatch.boxed_clone(),
+                            cx,
+                        );
+                    }
+                } else {
+                    self.vim_repeat_search(reverse, window, cx)
+                }
+            }
+            Command::SelectTextObject { target, count } => {
+                self.vim_select_text_object(target, count, window, cx)
+            }
+            Command::Insert { append } => self.vim_start_insert(
+                if append {
+                    LightweightVimInsertion::After
+                } else {
+                    LightweightVimInsertion::Before
+                },
+                window,
+                cx,
+            ),
+            Command::Repeat { count } => self.vim_repeat(count, window, cx),
+            Command::Paste { before, count } => self.vim_paste(before, count, window, cx),
+            Command::Move { motion, count } => {
+                let visual = self.lightweight_vim_mode == LightweightVimMode::Visual;
+                if matches!(
+                    motion,
+                    Motion::Left | Motion::Right | Motion::Up | Motion::Down
+                ) {
+                    for _ in 0..count {
+                        match (motion, visual) {
+                            (Motion::Left, false) => self.move_left(&MoveLeft, window, cx),
+                            (Motion::Right, false) => self.move_right(&MoveRight, window, cx),
+                            (Motion::Up, false) => self.move_up(&MoveUp, window, cx),
+                            (Motion::Down, false) => self.move_down(&MoveDown, window, cx),
+                            (Motion::Left, true) => self.select_left(&SelectLeft, window, cx),
+                            (Motion::Right, true) => self.select_right(&SelectRight, window, cx),
+                            (Motion::Up, true) => self.select_up(&SelectUp, window, cx),
+                            (Motion::Down, true) => self.select_down(&SelectDown, window, cx),
+                            _ => {}
+                        }
+                    }
+                    cx.notify();
+                    return;
+                }
+                let snapshot = self.display_snapshot(cx);
+                let text = snapshot.buffer_snapshot().text();
+                let visual = self.lightweight_vim_mode == LightweightVimMode::Visual;
+                let ranges = self
+                    .selections
+                    .all::<MultiBufferOffset>(&snapshot)
+                    .iter()
+                    .map(|selection| {
+                        let destination =
+                            lightweight_vim::motion(&text, selection.head().0, motion, count);
+                        if visual {
+                            selection.tail().0..destination
+                        } else {
+                            let destination = lightweight_vim::normal_offset(&text, destination);
+                            destination..destination
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                self.change_selections(Default::default(), window, cx, |selections| {
+                    selections.select_ranges(
+                        ranges.into_iter().map(|range| {
+                            MultiBufferOffset(range.start)..MultiBufferOffset(range.end)
+                        }),
+                    )
+                });
+            }
+            Command::Edit {
+                operator,
+                target,
+                count,
+            } => self.vim_edit(operator, target, count, window, cx),
+            Command::DeleteCharacters { count } => self.vim_edit(
+                Operator::Delete,
+                Target::Motion(Motion::Right),
+                count,
+                window,
+                cx,
+            ),
+            Command::ScrollCursor(position) => match position {
+                lightweight_vim::CursorScrollPosition::Center => {
+                    self.scroll_cursor_center(&ScrollCursorCenter, window, cx)
+                }
+                lightweight_vim::CursorScrollPosition::Top => {
+                    self.scroll_cursor_top(&ScrollCursorTop, window, cx)
+                }
+                lightweight_vim::CursorScrollPosition::Bottom => {
+                    self.scroll_cursor_bottom(&ScrollCursorBottom, window, cx)
+                }
+            },
+        }
+        cx.notify();
+    }
+
+    fn vim_transform(&mut self, case: lightweight_vim::TextCase, target: lightweight_vim::Target, count: usize, window: &mut Window, cx: &mut Context<Self>) {
+        if self.read_only(cx) { return; }
+        let snapshot = self.display_snapshot(cx);
+        let text = snapshot.buffer_snapshot().text();
+        let ranges = self.selections.all::<MultiBufferOffset>(&snapshot).iter().filter_map(|selection| {
+            if self.lightweight_vim_mode == LightweightVimMode::Visual {
+                lightweight_vim_visual_range(&text, selection, self.selections.line_mode())
+                    .map(|(range, _)| range)
+            }
+            else { lightweight_vim::resolve_range(&text, selection.head().0, lightweight_vim::Operator::Change, target, count).map(|(range, _)| range) }
+        }).collect::<Vec<_>>();
+        if ranges.is_empty() { return; }
+        self.change_selections(Default::default(), window, cx, |selections| {
+            selections.select_ranges(ranges.into_iter().map(|range| MultiBufferOffset(range.start)..MultiBufferOffset(range.end)));
+        });
+        self.manipulate_text(window, cx, |text| match case {
+            lightweight_vim::TextCase::Lower => text.to_lowercase(),
+            lightweight_vim::TextCase::Upper => text.to_uppercase(),
+            lightweight_vim::TextCase::Toggle => text.chars().flat_map(|character| if character.is_uppercase() { character.to_lowercase().collect::<Vec<_>>() } else { character.to_uppercase().collect::<Vec<_>>() }).collect(),
+        });
+        self.set_lightweight_vim_mode(LightweightVimMode::Normal);
+        cx.notify();
+    }
+
+    fn vim_comment(
+        &mut self,
+        target: lightweight_vim::Target,
+        count: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.read_only(cx) {
+            return;
+        }
+        let snapshot = self.display_snapshot(cx);
+        let text = snapshot.buffer_snapshot().text();
+        let selections = self.selections.all::<MultiBufferOffset>(&snapshot);
+        let ranges = selections
+            .iter()
+            .filter_map(|selection| {
+                if self.lightweight_vim_mode == LightweightVimMode::Visual {
+                    lightweight_vim_visual_range(&text, selection, self.selections.line_mode())
+                        .map(|(range, _)| range)
+                } else {
+                    lightweight_vim::resolve_range(
+                        &text,
+                        selection.head().0,
+                        lightweight_vim::Operator::Change,
+                        target,
+                        count,
+                    )
+                    .map(|(range, _)| range)
+                }
+            })
+            .collect::<Vec<_>>();
+        if ranges.is_empty() {
+            return;
+        }
+        let cursor_anchors = selections
+            .iter()
+            .map(|selection| snapshot.buffer_snapshot().anchor_before(selection.head()))
+            .collect::<Vec<_>>();
+        self.change_selections(Default::default(), window, cx, |selections| {
+            selections.select_ranges(
+                ranges
+                    .into_iter()
+                    .map(|range| MultiBufferOffset(range.start)..MultiBufferOffset(range.end)),
+            );
+        });
+        self.toggle_comments(&ToggleComments::default(), window, cx);
+        let snapshot = self.buffer.read(cx).snapshot(cx);
+        let cursors = cursor_anchors
+            .into_iter()
+            .map(|anchor| {
+                let offset = anchor.to_offset(&snapshot);
+                offset..offset
+            })
+            .collect::<Vec<_>>();
+        self.change_selections(Default::default(), window, cx, |selections| {
+            selections.set_line_mode(false);
+            selections.select_ranges(cursors);
+        });
+        self.set_lightweight_vim_mode(LightweightVimMode::Normal);
+        cx.notify();
+    }
+
+    fn vim_join(
+        &mut self,
+        count: usize,
+        recorded_line_counts: Option<&[usize]>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.read_only(cx) {
+            return;
+        }
+        let snapshot = self.display_snapshot(cx);
+        let text = snapshot.buffer_snapshot().text();
+        let visual = self.lightweight_vim_mode == LightweightVimMode::Visual;
+        let selections = self.selections.all::<Point>(&snapshot);
+        let max_row = snapshot.buffer_snapshot().max_point().row;
+        let mut groups: Vec<std::ops::RangeInclusive<u32>> = Vec::new();
+        let mut stationary = Vec::new();
+        for (index, selection) in selections.iter().enumerate() {
+            let first = if visual {
+                selection.start.row
+            } else {
+                selection.head().row
+            };
+            let lines = if visual {
+                (selection.end.row - first) as usize + 1
+            } else {
+                recorded_line_counts
+                    .and_then(|counts| {
+                        if counts.len() == selections.len() {
+                            counts.get(index)
+                        } else {
+                            counts.first()
+                        }
+                    })
+                    .copied()
+                    .unwrap_or(count)
+            }
+            .max(2);
+            let last = first
+                .saturating_add(u32::try_from(lines - 1).unwrap_or(u32::MAX))
+                .min(max_row);
+            if first == last {
+                stationary.push((
+                    first,
+                    snapshot.buffer_snapshot().anchor_before(selection.head()),
+                ));
+                continue;
+            }
+            if let Some(previous) = groups.last_mut()
+                && first <= *previous.end()
+            {
+                *previous = *previous.start()..=last.max(*previous.end());
+            } else {
+                groups.push(first..=last);
+            }
+        }
+        let mut edits = Vec::new();
+        let mut cursors = stationary
+            .into_iter()
+            .filter(|(row, _)| !groups.iter().any(|group| group.contains(row)))
+            .map(|(_, anchor)| (anchor, 0))
+            .collect::<Vec<_>>();
+        let mut line_counts = Vec::new();
+        for group in groups {
+            let Some(joined) =
+                lightweight_vim::join_lines(&text, *group.start() as usize, *group.end() as usize)
+            else {
+                continue;
+            };
+            line_counts.push((*group.end() - *group.start()) as usize + 1);
+            let start = MultiBufferOffset(joined.range.start);
+            cursors.push((
+                snapshot.buffer_snapshot().anchor_before(start),
+                joined.cursor,
+            ));
+            edits.push((start..MultiBufferOffset(joined.range.end), joined.text));
+        }
+        if edits.is_empty() {
+            return;
+        }
+        self.finalize_last_transaction(cx);
+        let transaction = self.transact(window, cx, |editor, window, cx| {
+            editor
+                .buffer
+                .update(cx, |buffer, cx| buffer.edit(edits, None, cx));
+            let snapshot = editor.buffer.read(cx).snapshot(cx);
+            let text = snapshot.text();
+            let offsets = cursors.into_iter().map(|(anchor, cursor)| {
+                let offset = MultiBufferOffset(lightweight_vim::normal_offset(
+                    &text,
+                    anchor.to_offset(&snapshot).0 + cursor,
+                ));
+                offset..offset
+            });
+            editor.change_selections(Default::default(), window, cx, |selections| {
+                selections.set_line_mode(false);
+                selections.select_ranges(offsets);
+            });
+        });
+        if transaction.is_some() && !self.lightweight_vim_replaying {
+            self.lightweight_vim_last_change = Some(LightweightVimChange {
+                kind: LightweightVimChangeKind::Join {
+                    line_counts: if visual {
+                        line_counts.clone()
+                    } else {
+                        Vec::new()
+                    },
+                },
+                count: if visual {
+                    line_counts.into_iter().max().unwrap_or(2)
+                } else {
+                    count.max(2)
+                },
+                inserted: Vec::new(),
+                cursors: Vec::new(),
+            });
+        }
+        self.set_lightweight_vim_mode(LightweightVimMode::Normal);
+        self.finalize_last_transaction(cx);
+        cx.notify();
+    }
+
+    fn vim_indent(
+        &mut self,
+        kind: lightweight_vim::Indentation,
+        count: usize,
+        levels: usize,
+        recorded_line_counts: Option<&[usize]>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.read_only(cx) {
+            return;
+        }
+        let snapshot = self.display_snapshot(cx);
+        let visual = self.lightweight_vim_mode == LightweightVimMode::Visual;
+        let selections = self.selections.all::<Point>(&snapshot);
+        let max_point = snapshot.buffer_snapshot().max_point();
+        let mut ranges = Vec::new();
+        let mut line_counts = Vec::new();
+        let mut anchors = Vec::new();
+        let mut rows = Vec::new();
+        for (index, selection) in selections.iter().enumerate() {
+            let first = if visual {
+                selection.start.row
+            } else {
+                selection.head().row
+            };
+            let lines = if visual {
+                selection.end.row.saturating_sub(first) as usize + 1
+            } else {
+                recorded_line_counts
+                    .and_then(|counts| {
+                        if counts.len() == selections.len() {
+                            counts.get(index)
+                        } else {
+                            counts.first()
+                        }
+                    })
+                    .copied()
+                    .unwrap_or(count)
+            }
+            .max(1);
+            let last = first
+                .saturating_add(u32::try_from(lines.saturating_sub(1)).unwrap_or(u32::MAX))
+                .min(max_point.row);
+            let start = Point::new(first, 0);
+            let end = if last < max_point.row {
+                Point::new(last + 1, 0)
+            } else {
+                max_point
+            };
+            ranges.push(start..end);
+            rows.extend(first..=last);
+            line_counts.push((last - first) as usize + 1);
+            anchors.push(snapshot.buffer_snapshot().anchor_before(start));
+        }
+        let autoindent_edits = if kind == lightweight_vim::Indentation::Auto {
+            rows.sort_unstable();
+            rows.dedup();
+            let buffer = snapshot.buffer_snapshot();
+            // Apply the native indentation suggestions synchronously so == and its cursor move share one undo step.
+            buffer
+                .suggested_indents(rows, cx)
+                .into_iter()
+                .filter_map(|(row, indentation)| {
+                    if buffer.is_line_blank(row) {
+                        return None;
+                    }
+                    Buffer::edit_for_indent_size_adjustment(
+                        row.0,
+                        buffer.indent_size_for_line(row),
+                        indentation,
+                    )
+                })
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
+        let levels = if visual { count } else { levels };
+        self.finalize_last_transaction(cx);
+        let transaction = self.transact(window, cx, |editor, window, cx| {
+            editor.change_selections(Default::default(), window, cx, |selections| {
+                selections.set_line_mode(false);
+                selections.select_ranges(ranges);
+            });
+            match kind {
+                lightweight_vim::Indentation::Indent => {
+                    for _ in 0..levels {
+                        editor.indent(&Indent, window, cx);
+                    }
+                }
+                lightweight_vim::Indentation::Outdent => {
+                    for _ in 0..levels {
+                        editor.outdent(&Outdent, window, cx);
+                    }
+                }
+                lightweight_vim::Indentation::Auto => editor
+                    .buffer
+                    .update(cx, |buffer, cx| buffer.edit(autoindent_edits, None, cx)),
+            }
+            let snapshot = editor.buffer.read(cx).snapshot(cx);
+            let text = snapshot.text();
+            let offsets = anchors.into_iter().map(|anchor| {
+                let start = anchor.to_offset(&snapshot).0;
+                let offset = lightweight_vim::motion(
+                    &text,
+                    start,
+                    lightweight_vim::Motion::FirstNonblank,
+                    1,
+                );
+                let offset = MultiBufferOffset(lightweight_vim::normal_offset(&text, offset));
+                offset..offset
+            });
+            editor.change_selections(Default::default(), window, cx, |selections| {
+                selections.select_ranges(offsets)
+            });
+        });
+        if transaction.is_some() && !self.lightweight_vim_replaying {
+            self.lightweight_vim_last_change = Some(LightweightVimChange {
+                kind: LightweightVimChangeKind::Indent {
+                    kind,
+                    levels,
+                    line_counts: if visual {
+                        line_counts.clone()
+                    } else {
+                        Vec::new()
+                    },
+                },
+                count: if visual {
+                    line_counts.into_iter().max().unwrap_or(1)
+                } else {
+                    count
+                },
+                inserted: Vec::new(),
+                cursors: Vec::new(),
+            });
+        }
+        self.set_lightweight_vim_mode(LightweightVimMode::Normal);
+        self.finalize_last_transaction(cx);
+        cx.notify();
+    }
+
+    fn vim_bracket_destination(
+        snapshot: &MultiBufferSnapshot,
+        text: &str,
+        offset: usize,
+    ) -> Option<usize> {
+        let bracket = lightweight_vim::bracket_at_or_after(text, offset)?;
+        if let Some((opening, closing)) = snapshot.innermost_enclosing_bracket_ranges(
+            MultiBufferOffset(bracket)..MultiBufferOffset(lightweight_vim::next(text, bracket)),
+            None,
+        ) {
+            if opening.start.0 == bracket {
+                return Some(closing.start.0);
+            }
+            if closing.start.0 == bracket {
+                return Some(opening.start.0);
+            }
+        }
+        lightweight_vim::matching_bracket(text, offset)
+    }
+
+    fn vim_match_bracket(
+        &mut self,
+        operator: Option<lightweight_vim::Operator>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(operator) = operator {
+            self.vim_edit(
+                operator,
+                lightweight_vim::Target::MatchingBracket,
+                1,
+                window,
+                cx,
+            );
+            return;
+        }
+        let snapshot = self.display_snapshot(cx);
+        let text = snapshot.buffer_snapshot().text();
+        let visual = self.lightweight_vim_mode == LightweightVimMode::Visual;
+        let ranges = self
+            .selections
+            .all::<MultiBufferOffset>(&snapshot)
+            .iter()
+            .map(|selection| {
+                let destination = Self::vim_bracket_destination(
+                    snapshot.buffer_snapshot(),
+                    &text,
+                    selection.head().0,
+                )
+                .map(MultiBufferOffset)
+                .unwrap_or(selection.head());
+                if visual {
+                    selection.tail()..destination
+                } else {
+                    destination..destination
+                }
+            })
+            .collect::<Vec<_>>();
+        self.change_selections(Default::default(), window, cx, |selections| {
+            selections.select_ranges(ranges)
+        });
+    }
+
+    fn vim_select_text_object(
+        &mut self,
+        target: lightweight_vim::Target,
+        count: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let snapshot = self.display_snapshot(cx);
+        let text = snapshot.buffer_snapshot().text();
+        let ranges = self
+            .selections
+            .all::<MultiBufferOffset>(&snapshot)
+            .iter()
+            .filter_map(|selection| {
+                let (range, linewise) = lightweight_vim::resolve_range(
+                    &text,
+                    selection.head().0,
+                    lightweight_vim::Operator::Yank,
+                    target,
+                    count,
+                )?;
+                let range = if selection.reversed {
+                    MultiBufferOffset(range.end)..MultiBufferOffset(range.start)
+                } else {
+                    MultiBufferOffset(range.start)..MultiBufferOffset(range.end)
+                };
+                Some((range, linewise))
+            })
+            .collect::<Vec<_>>();
+        if ranges.is_empty() {
+            return;
+        }
+        let linewise = ranges.iter().all(|(_, linewise)| *linewise);
+        self.change_selections(Default::default(), window, cx, |selections| {
+            selections.set_line_mode(linewise);
+            selections.select_ranges(ranges.into_iter().map(|(range, _)| range));
+        });
+    }
+
+    fn vim_search_word(
+        &mut self,
+        backwards: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let snapshot = self.display_snapshot(cx);
+        let text = snapshot.buffer_snapshot().text();
+        let Some(selection) = self
+            .selections
+            .all::<MultiBufferOffset>(&snapshot)
+            .first()
+            .cloned()
+        else {
+            return;
+        };
+        let head = selection.head().0;
+        let (word_range, _) = lightweight_vim::edit_range(
+            &text,
+            head,
+            lightweight_vim::Operator::Yank,
+            lightweight_vim::Target::Word { around: false },
+            1,
+        );
+        let Some(query) = text.get(word_range.clone()).filter(|query| {
+            !query.is_empty()
+                && query
+                    .chars()
+                    .all(|character| character.is_alphanumeric() || character == '_')
+        }) else {
+            return;
+        };
+        let query = query.to_string();
+        self.lightweight_vim_last_search = Some((query.clone(), backwards));
+        self.clear_background_highlights(HighlightKey::BufferSearchHighlights, cx);
+        let buffer_snapshot = snapshot.buffer_snapshot();
+        let search_highlights = lightweight_vim::word_matches(&text, &query)
+            .into_iter()
+            .map(|range| {
+                buffer_snapshot.anchor_before(MultiBufferOffset(range.start))
+                    ..buffer_snapshot.anchor_after(MultiBufferOffset(range.end))
+            })
+            .collect::<Vec<_>>();
+        self.highlight_background(
+            HighlightKey::VimSearch,
+            &search_highlights,
+            |_, theme| theme.colors().search_match_background,
+            cx,
+        );
+        let search_offset = if backwards {
+            word_range.start
+        } else {
+            word_range.end
+        };
+        self.set_lightweight_vim_mode(LightweightVimMode::Normal);
+        let match_range = lightweight_vim::find_word_match(
+            &text,
+            &query,
+            search_offset,
+            backwards,
+            false,
+            Some(word_range),
+        );
+        let cursor = MultiBufferOffset(match_range.map_or(head, |range| range.start));
+        self.change_selections(Default::default(), window, cx, |selections| {
+            selections.set_line_mode(false);
+            selections.select_ranges([cursor..cursor]);
+        });
+    }
+
+    fn vim_repeat_search(
+        &mut self,
+        reverse: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some((query, previous_direction)) = self.lightweight_vim_last_search.clone() else {
+            return;
+        };
+        let backwards = previous_direction ^ reverse;
+        let snapshot = self.display_snapshot(cx);
+        let text = snapshot.buffer_snapshot().text();
+        let Some(selection) = self
+            .selections
+            .all::<MultiBufferOffset>(&snapshot)
+            .first()
+            .cloned()
+        else {
+            return;
+        };
+        let head = selection.head().0;
+        self.set_lightweight_vim_mode(LightweightVimMode::Normal);
+        let current_match = text
+            .get(head..head.saturating_add(query.len()))
+            .filter(|current| *current == query)
+            .map(|_| head..head + query.len());
+        let match_range = lightweight_vim::find_word_match(
+            &text,
+            &query,
+            head,
+            backwards,
+            false,
+            current_match,
+        );
+        if let Some(match_range) = match_range {
+            let cursor = MultiBufferOffset(match_range.start);
+            self.change_selections(Default::default(), window, cx, |selections| {
+                selections.set_line_mode(false);
+                selections.select_ranges([cursor..cursor]);
+            });
+        }
+    }
+
+    fn vim_find(
+        &mut self,
+        find: lightweight_vim::CharacterFind,
+        operator: Option<lightweight_vim::Operator>,
+        count: usize,
+        repeated: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(operator) = operator {
+            self.vim_edit(
+                operator,
+                lightweight_vim::Target::Find { find, repeated },
+                count,
+                window,
+                cx,
+            );
+            return;
+        }
+        let snapshot = self.display_snapshot(cx);
+        let text = snapshot.buffer_snapshot().text();
+        let visual = self.lightweight_vim_mode == LightweightVimMode::Visual;
+        let ranges = self
+            .selections
+            .all::<MultiBufferOffset>(&snapshot)
+            .iter()
+            .map(|selection| {
+                let destination = lightweight_vim::find_character(
+                    &text,
+                    selection.head().0,
+                    find,
+                    count,
+                    repeated,
+                )
+                .map(MultiBufferOffset)
+                .unwrap_or(selection.head());
+                if visual {
+                    selection.tail()..destination
+                } else {
+                    destination..destination
+                }
+            })
+            .collect::<Vec<_>>();
+        self.change_selections(Default::default(), window, cx, |selections| {
+            selections.select_ranges(ranges)
+        });
+    }
+
+    fn vim_edit(
+        &mut self,
+        operator: lightweight_vim::Operator,
+        target: lightweight_vim::Target,
+        count: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        use lightweight_vim::Operator;
+        let visual = self.lightweight_vim_mode == LightweightVimMode::Visual;
+        if operator != Operator::Yank && self.read_only(cx) {
+            return;
+        }
+        let snapshot = self.display_snapshot(cx);
+        let text = snapshot.buffer_snapshot().text();
+        let mut ranges =
+            self.selections
+                .all::<MultiBufferOffset>(&snapshot)
+                .iter()
+                .filter_map(|selection| {
+                    if visual {
+                        lightweight_vim_visual_range(&text, selection, self.selections.line_mode())
+                    } else if target == lightweight_vim::Target::MatchingBracket {
+                        let offset = selection.head().0;
+                        Self::vim_bracket_destination(snapshot.buffer_snapshot(), &text, offset)
+                            .map(|destination| {
+                                (
+                                    offset.min(destination)
+                                        ..lightweight_vim::next(&text, offset.max(destination)),
+                                    false,
+                                )
+                            })
+                    } else {
+                        lightweight_vim::resolve_range(
+                            &text,
+                            selection.head().0,
+                            operator,
+                            target,
+                            count,
+                        )
+                    }
+                })
+                .filter(|(range, linewise)| {
+                    !range.is_empty()
+                        || *linewise
+                        || (operator == Operator::Change
+                            && matches!(
+                                target,
+                                lightweight_vim::Target::Delimited { .. }
+                                    | lightweight_vim::Target::Find { .. }
+                            ))
+                })
+                .collect::<Vec<_>>();
+        ranges.sort_by_key(|(range, _)| range.start);
+        let mut merged: Vec<(Range<usize>, bool)> = Vec::new();
+        for (range, linewise) in ranges {
+            if let Some((previous, _)) = merged.last_mut()
+                && range.start <= previous.end
+            {
+                previous.end = previous.end.max(range.end);
+            } else {
+                merged.push((range, linewise));
+            }
+        }
+        if merged.is_empty() {
+            if operator == Operator::Change
+                && !matches!(
+                    target,
+                    lightweight_vim::Target::Delimited { .. }
+                        | lightweight_vim::Target::Find { .. }
+                        | lightweight_vim::Target::MatchingBracket
+                )
+            {
+                if !self.lightweight_vim_replaying {
+                    self.vim_begin_insert_session(
+                        LightweightVimChangeKind::Edit { operator, target },
+                        count,
+                        false,
+                        cx,
+                    );
+                }
+                self.set_lightweight_vim_mode(LightweightVimMode::Insert);
+            }
+            return;
+        }
+        let mut copied_text = String::new();
+        let mut metadata = Vec::new();
+        for (range, linewise) in &merged {
+            let Some(part) = text.get(range.clone()) else {
+                return;
+            };
+            let mut part = part.to_string();
+            if *linewise && !part.ends_with('\n') {
+                part.push('\n');
+            }
+            metadata.push(ClipboardSelection {
+                len: part.len(),
+                is_entire_line: *linewise,
+                first_line_indent: 0,
+                file_path: None,
+                line_range: None,
+            });
+            copied_text.push_str(&part);
+        }
+        if !copied_text.is_empty() {
+            cx.write_to_clipboard(ClipboardItem::new_string_with_json_metadata(
+                copied_text,
+                metadata,
+            ));
+        }
+        if operator == Operator::Yank {
+            if visual {
+                self.selections.set_line_mode(false);
+                self.set_lightweight_vim_mode(LightweightVimMode::Normal);
+            }
+            return;
+        }
+        let linewise_delete =
+            operator == Operator::Delete && merged.iter().all(|(_, linewise)| *linewise);
+        let mut edits = Vec::new();
+        for (mut range, linewise) in merged {
+            let replacement = if operator == Operator::Change && linewise {
+                let original = text.get(range.clone()).unwrap_or("");
+                let indentation = original
+                    .chars()
+                    .take_while(|character| matches!(character, ' ' | '\t'))
+                    .collect::<String>();
+                if original.ends_with('\n')
+                    || (range.is_empty()
+                        && matches!(target, lightweight_vim::Target::Delimited { .. }))
+                {
+                    format!("{indentation}\n")
+                } else {
+                    indentation
+                }
+            } else {
+                String::new()
+            };
+            if operator == Operator::Delete
+                && linewise
+                && range.end == text.len()
+                && range.start > 0
+                && (range.is_empty() || !text.ends_with('\n'))
+            {
+                range.start = lightweight_vim::previous(&text, range.start);
+            }
+            edits.push((range, replacement));
+        }
+        let anchors = edits
+            .iter()
+            .map(|(range, replacement)| {
+                let indentation = replacement.trim_end_matches('\n').len();
+                (
+                    snapshot
+                        .buffer_snapshot()
+                        .anchor_before(MultiBufferOffset(range.start)),
+                    indentation,
+                )
+            })
+            .collect::<Vec<_>>();
+        self.finalize_last_transaction(cx);
+        let transaction = self.transact(window, cx, |editor, window, cx| {
+            editor.edit(
+                edits.into_iter().map(|(range, replacement)| {
+                    (
+                        MultiBufferOffset(range.start)..MultiBufferOffset(range.end),
+                        replacement,
+                    )
+                }),
+                cx,
+            );
+            let snapshot = editor.buffer.read(cx).snapshot(cx);
+            let text = snapshot.text();
+            let cursors = anchors
+                .iter()
+                .map(|(anchor, indentation)| anchor.to_offset(&snapshot).0 + indentation)
+                .collect::<Vec<_>>();
+            editor.change_selections(Default::default(), window, cx, |selections| {
+                selections.set_line_mode(false);
+                selections.select_ranges(cursors.into_iter().map(|offset| {
+                    let offset = if linewise_delete {
+                        lightweight_vim::motion(
+                            &text,
+                            offset,
+                            lightweight_vim::Motion::LineStart,
+                            1,
+                        )
+                    } else if operator == Operator::Change {
+                        offset
+                    } else {
+                        lightweight_vim::normal_offset(&text, offset)
+                    };
+                    MultiBufferOffset(offset)..MultiBufferOffset(offset)
+                }));
+            });
+        });
+        if operator == Operator::Change {
+            self.lightweight_vim_change_transaction = transaction;
+            if !self.lightweight_vim_replaying {
+                self.vim_begin_insert_session(
+                    LightweightVimChangeKind::Edit { operator, target },
+                    count,
+                    transaction.is_some(),
+                    cx,
+                );
+                if visual
+                    && let Some(session) = self.lightweight_vim_insert_session.as_mut()
+                {
+                    session.valid = false;
+                }
+            }
+            self.set_lightweight_vim_mode(LightweightVimMode::Insert);
+        } else if transaction.is_some() && !self.lightweight_vim_replaying && !visual {
+            self.lightweight_vim_last_change = Some(LightweightVimChange {
+                kind: LightweightVimChangeKind::Edit { operator, target },
+                count,
+                inserted: Vec::new(),
+                cursors: Vec::new(),
+            });
+        }
+        if visual && operator == Operator::Delete {
+            self.set_lightweight_vim_mode(LightweightVimMode::Normal);
+        }
+    }
+
+    fn vim_begin_insert_session(
+        &mut self,
+        kind: LightweightVimChangeKind,
+        count: usize,
+        changed: bool,
+        cx: &mut App,
+    ) {
+        let snapshot = self.display_snapshot(cx);
+        let ranges = self
+            .selections
+            .all::<MultiBufferOffset>(&snapshot)
+            .iter()
+            .map(|selection| {
+                let offset = selection.head();
+                (
+                    snapshot.buffer_snapshot().anchor_before(offset),
+                    snapshot.buffer_snapshot().anchor_after(offset),
+                )
+            })
+            .collect();
+        self.lightweight_vim_insert_session = Some(LightweightVimInsertSession {
+            change: LightweightVimChange {
+                kind,
+                count,
+                inserted: Vec::new(),
+                cursors: Vec::new(),
+            },
+            ranges,
+            changed,
+            valid: true,
+        });
+    }
+
+    fn vim_start_insert(
+        &mut self,
+        position: LightweightVimInsertion,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !self.vim_mode_enabled || self.read_only(cx) {
+            return;
+        }
+        if !self.lightweight_vim_replaying {
+            self.finish_lightweight_vim_change(cx);
+            self.finalize_last_transaction(cx);
+            self.lightweight_vim_change_transaction = None;
+            self.vim_begin_insert_session(LightweightVimChangeKind::Insert(position), 1, false, cx);
+            if let Some(session) = self.lightweight_vim_insert_session.as_mut() {
+                session.ranges.clear();
+            }
+        }
+        match position {
+            LightweightVimInsertion::Before => {}
+            LightweightVimInsertion::After => self.move_right(&MoveRight, window, cx),
+            LightweightVimInsertion::LineStart => self.move_to_beginning_of_line(
+                &MoveToBeginningOfLine {
+                    stop_at_soft_wraps: false,
+                    stop_at_indent: true,
+                },
+                window,
+                cx,
+            ),
+            LightweightVimInsertion::LineEnd => self.move_to_end_of_line(
+                &MoveToEndOfLine {
+                    stop_at_soft_wraps: false,
+                },
+                window,
+                cx,
+            ),
+            LightweightVimInsertion::Above => self.newline_above(&NewlineAbove, window, cx),
+            LightweightVimInsertion::Below => self.newline_below(&NewlineBelow, window, cx),
+        }
+        if !self.lightweight_vim_replaying {
+            let changed = self
+                .lightweight_vim_insert_session
+                .as_ref()
+                .is_some_and(|session| session.changed);
+            self.vim_begin_insert_session(
+                LightweightVimChangeKind::Insert(position),
+                1,
+                changed,
+                cx,
+            );
+        }
+        self.set_lightweight_vim_mode(LightweightVimMode::Insert);
+        cx.notify();
+    }
+
+    fn validate_lightweight_vim_insert(&mut self, backspace: bool, delete: bool, cx: &mut App) {
+        if self.lightweight_vim_replaying {
+            return;
+        }
+        let Some(session) = self.lightweight_vim_insert_session.as_ref() else {
+            return;
+        };
+        if session.ranges.is_empty() {
+            return;
+        }
+        let snapshot = self.display_snapshot(cx);
+        let selections = self.selections.all::<MultiBufferOffset>(&snapshot);
+        let valid = selections.len() == session.ranges.len()
+            && selections
+                .iter()
+                .zip(&session.ranges)
+                .all(|(selection, (start, end))| {
+                    let start = start.to_offset(snapshot.buffer_snapshot());
+                    let end = end.to_offset(snapshot.buffer_snapshot());
+                    selection.start >= start
+                        && selection.end <= end
+                        && !(selection.is_empty()
+                            && ((backspace && selection.head() <= start)
+                                || (delete && selection.head() >= end)))
+                });
+        if !valid && let Some(session) = self.lightweight_vim_insert_session.as_mut() {
+            session.valid = false;
+        }
+    }
+
+    pub(crate) fn vim_normal_mode(
+        &mut self,
+        _: &VimNormalMode,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !self.vim_mode_enabled {
+            return;
+        }
+        match self.lightweight_vim_mode {
+            LightweightVimMode::Insert => {
+                let snapshot = self.display_snapshot(cx);
+                let column = self
+                    .selections
+                    .newest::<MultiBufferOffset>(&snapshot)
+                    .head()
+                    .to_point(&snapshot)
+                    .column;
+                if column > 0 {
+                    self.move_left(&MoveLeft, window, cx);
+                }
+            }
+            LightweightVimMode::Visual => {
+                self.change_selections(Default::default(), window, cx, |selections| {
+                    selections.set_line_mode(false);
+                    selections.move_with(&mut |_, selection| {
+                        selection.collapse_to(selection.head(), Default::default())
+                    });
+                })
+            }
+            _ => {}
+        }
+        self.finish_lightweight_vim_change(cx);
+        self.set_lightweight_vim_mode(LightweightVimMode::Normal);
+        cx.notify();
+    }
+
+    fn vim_replay_inserted(
+        &mut self,
+        change: &LightweightVimChange,
+        repetitions: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let snapshot = self.display_snapshot(cx);
+        let selections = self.selections.all::<MultiBufferOffset>(&snapshot);
+        let mut edits = Vec::new();
+        let mut cursors = Vec::new();
+        let mut total = 0usize;
+        for (index, selection) in selections.iter().enumerate() {
+            let source_index = if change.inserted.len() == selections.len() {
+                index
+            } else {
+                0
+            };
+            let Some(text) = change.inserted.get(source_index) else {
+                return;
+            };
+            let Some(length) = text
+                .len()
+                .checked_mul(repetitions)
+                .and_then(|length| total.checked_add(length))
+            else {
+                return;
+            };
+            if length > 64 * 1024 * 1024 {
+                log::warn!("Lightweight Vim repeat exceeds 64 MiB");
+                return;
+            }
+            total = length;
+            let last_copy = text.len() * repetitions.saturating_sub(1);
+            let cursor = change
+                .cursors
+                .get(source_index)
+                .copied()
+                .flatten()
+                .map(|offset| last_copy + offset.min(text.len()));
+            cursors.push((
+                snapshot.buffer_snapshot().anchor_before(selection.start),
+                cursor,
+                last_copy,
+            ));
+            edits.push((selection.start..selection.end, text.repeat(repetitions)));
+        }
+        self.transact(window, cx, |editor, window, cx| {
+            editor.edit(edits, cx);
+            let snapshot = editor.buffer.read(cx).snapshot(cx);
+            let text = snapshot.text();
+            let offsets = cursors
+                .iter()
+                .map(|(anchor, cursor, last_copy)| {
+                    let start = anchor.to_offset(&snapshot).0;
+                    let offset = cursor.map_or_else(
+                        || lightweight_vim::previous(&text, start + last_copy),
+                        |cursor| start + cursor,
+                    );
+                    snapshot.clip_offset(MultiBufferOffset(offset), Bias::Left)
+                })
+                .collect::<Vec<_>>();
+            editor.change_selections(Default::default(), window, cx, |selections| {
+                selections.select_ranges(offsets.into_iter().map(|offset| offset..offset));
+            });
+        });
+    }
+
+    fn vim_repeat(&mut self, count: Option<usize>, window: &mut Window, cx: &mut Context<Self>) {
+        if self.lightweight_vim_replaying
+            || self.read_only(cx)
+            || self.lightweight_vim_mode != LightweightVimMode::Normal
+        {
+            return;
+        }
+        let Some(mut change) = self.lightweight_vim_last_change.clone() else {
+            return;
+        };
+        if count.is_some()
+            && matches!(
+                change.kind,
+                LightweightVimChangeKind::Edit {
+                    target: lightweight_vim::Target::MatchingBracket,
+                    ..
+                }
+            )
+        {
+            return;
+        }
+        change.count = count.unwrap_or(change.count);
+        let repetitions = if matches!(change.kind, LightweightVimChangeKind::Insert(_)) {
+            change.count
+        } else {
+            1
+        };
+        let cursor_count = self.selections.count();
+        let largest = change.inserted.iter().map(String::len).max().unwrap_or(0);
+        if largest
+            .checked_mul(repetitions)
+            .and_then(|length| length.checked_mul(cursor_count))
+            .is_none_or(|length| length > 64 * 1024 * 1024)
+        {
+            log::warn!("Lightweight Vim repeat exceeds 64 MiB");
+            return;
+        }
+        self.finalize_last_transaction(cx);
+        self.lightweight_vim_change_transaction = None;
+        self.lightweight_vim_replaying = true;
+        match change.kind.clone() {
+            LightweightVimChangeKind::Edit { operator, target } => {
+                self.vim_edit(operator, target, change.count, window, cx);
+                if self.lightweight_vim_mode == LightweightVimMode::Insert {
+                    self.vim_replay_inserted(&change, 1, window, cx);
+                    self.set_lightweight_vim_mode(LightweightVimMode::Normal);
+                }
+            }
+            LightweightVimChangeKind::Insert(position) => {
+                if matches!(
+                    position,
+                    LightweightVimInsertion::Above | LightweightVimInsertion::Below
+                ) {
+                    for _ in 0..change.count {
+                        self.vim_start_insert(position, window, cx);
+                        self.vim_replay_inserted(&change, 1, window, cx);
+                        self.set_lightweight_vim_mode(LightweightVimMode::Normal);
+                    }
+                } else {
+                    self.vim_start_insert(position, window, cx);
+                    self.vim_replay_inserted(&change, change.count, window, cx);
+                    self.set_lightweight_vim_mode(LightweightVimMode::Normal);
+                }
+            }
+            LightweightVimChangeKind::Paste { before } => {
+                self.vim_paste(before, change.count, window, cx)
+            }
+            LightweightVimChangeKind::Replace(text) => {
+                self.vim_replace_char(&text, change.count, window, cx)
+            }
+            LightweightVimChangeKind::Join { line_counts } => {
+                change.count = change.count.max(2);
+                self.vim_join(
+                    change.count,
+                    count.is_none().then_some(line_counts.as_slice()),
+                    window,
+                    cx,
+                );
+                if count.is_some()
+                    && let LightweightVimChangeKind::Join { line_counts } = &mut change.kind
+                {
+                    line_counts.clear();
+                }
+            }
+            LightweightVimChangeKind::Indent {
+                kind,
+                levels,
+                line_counts,
+            } => {
+                self.vim_indent(
+                    kind,
+                    change.count,
+                    levels,
+                    count.is_none().then_some(line_counts.as_slice()),
+                    window,
+                    cx,
+                );
+                if count.is_some()
+                    && let LightweightVimChangeKind::Indent { line_counts, .. } = &mut change.kind
+                {
+                    line_counts.clear();
+                }
+            }
+        }
+        self.lightweight_vim_replaying = false;
+        self.finish_lightweight_vim_change(cx);
+        self.finalize_last_transaction(cx);
+        self.lightweight_vim_last_change = Some(change);
+        cx.notify();
+    }
+
+    fn vim_replace_char(
+        &mut self,
+        replacement: &str,
+        count: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.read_only(cx) {
+            self.set_lightweight_vim_mode(LightweightVimMode::Normal);
+            return;
+        }
+        let snapshot = self.display_snapshot(cx);
+        let text = snapshot.buffer_snapshot().text();
+        let mut edits = Vec::new();
+        let mut cursors = Vec::new();
+        for selection in self.selections.all::<MultiBufferOffset>(&snapshot) {
+            let range = lightweight_vim::edit_range(
+                &text,
+                selection.head().0,
+                lightweight_vim::Operator::Delete,
+                lightweight_vim::Target::Motion(lightweight_vim::Motion::Right),
+                count,
+            )
+            .0;
+            if text
+                .get(range.clone())
+                .is_none_or(|text| text.chars().count() < count)
+            {
+                continue;
+            }
+            let inserted = replacement.repeat(count);
+            cursors.push((
+                snapshot
+                    .buffer_snapshot()
+                    .anchor_before(MultiBufferOffset(range.start)),
+                lightweight_vim::previous(&inserted, inserted.len()),
+            ));
+            edits.push((
+                MultiBufferOffset(range.start)..MultiBufferOffset(range.end),
+                inserted,
+            ));
+        }
+        self.finalize_last_transaction(cx);
+        let transaction = self.transact(window, cx, |editor, window, cx| {
+            editor.edit(edits, cx);
+            let snapshot = editor.buffer.read(cx).snapshot(cx);
+            let offsets = cursors
+                .iter()
+                .map(|(anchor, offset)| anchor.to_offset(&snapshot) + *offset)
+                .collect::<Vec<_>>();
+            if !offsets.is_empty() {
+                editor.change_selections(Default::default(), window, cx, |selections| {
+                    selections.select_ranges(offsets.into_iter().map(|offset| offset..offset))
+                });
+            }
+        });
+        if transaction.is_some() && !self.lightweight_vim_replaying {
+            self.lightweight_vim_last_change = Some(LightweightVimChange {
+                kind: LightweightVimChangeKind::Replace(replacement.to_string()),
+                count,
+                inserted: Vec::new(),
+                cursors: Vec::new(),
+            });
+        }
+        self.set_lightweight_vim_mode(LightweightVimMode::Normal);
+        cx.notify();
+    }
+
+    fn finish_lightweight_vim_change(&mut self, cx: &mut Context<Self>) {
+        if self.lightweight_vim_replaying {
+            return;
+        }
+        if let Some(mut session) = self.lightweight_vim_insert_session.take() {
+            if session.changed && session.valid {
+                let snapshot = self.buffer.read(cx).snapshot(cx);
+                let text = snapshot.text();
+                let inserted = session
+                    .ranges
+                    .iter()
+                    .map(|(start, end)| {
+                        text.get(start.to_offset(&snapshot).0..end.to_offset(&snapshot).0)
+                            .map(str::to_string)
+                    })
+                    .collect::<Option<Vec<_>>>();
+                if let Some(inserted) = inserted {
+                    let display = self.display_snapshot(cx);
+                    let selections = self.selections.all::<MultiBufferOffset>(&display);
+                    session.change.cursors = session
+                        .ranges
+                        .iter()
+                        .enumerate()
+                        .map(|(index, (start, _))| {
+                            selections.get(index).and_then(|selection| {
+                                selection.head().0.checked_sub(start.to_offset(&snapshot).0)
+                            })
+                        })
+                        .collect();
+                    session.change.inserted = inserted;
+                    self.lightweight_vim_last_change = Some(session.change);
+                } else {
+                    self.lightweight_vim_last_change = None;
+                }
+            } else if !session.valid {
+                self.lightweight_vim_last_change = None;
+            }
+        }
+        if let Some(transaction) = self.lightweight_vim_change_transaction.take() {
+            self.group_until_transaction(transaction, cx);
+        }
+    }
+
+    fn vim_paste(
+        &mut self,
+        before: bool,
+        count: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.read_only(cx) {
+            return;
+        }
+        let Some(item) = cx.read_from_clipboard() else {
+            return;
+        };
+        let Some(clipboard_text) = item.text() else {
+            return;
+        };
+        let metadata = item
+            .entries()
+            .iter()
+            .find_map(|entry| match entry {
+                ClipboardEntry::String(entry) => entry.metadata_json::<Vec<ClipboardSelection>>(),
+                _ => None,
+            })
+            .unwrap_or_default();
+        let snapshot = self.display_snapshot(cx);
+        let text = snapshot.buffer_snapshot().text();
+        let selections = self.selections.all::<MultiBufferOffset>(&snapshot);
+        let visual = self.lightweight_vim_mode == LightweightVimMode::Visual;
+        let mut clipboard_offset = 0usize;
+        let mut edits = Vec::new();
+        for (index, selection) in selections.iter().enumerate() {
+            let (part, linewise) = if metadata.len() == selections.len() {
+                let Some(metadata) = metadata.get(index) else {
+                    return;
+                };
+                let Some(end) = clipboard_offset.checked_add(metadata.len) else {
+                    return;
+                };
+                let Some(part) = clipboard_text.get(clipboard_offset..end) else {
+                    return;
+                };
+                clipboard_offset = end;
+                (part, metadata.is_entire_line)
+            } else {
+                (
+                    clipboard_text.as_str(),
+                    !metadata.is_empty()
+                        && metadata.iter().all(|selection| selection.is_entire_line),
+                )
+            };
+            let mut part = part.replace("\r\n", "\n");
+            if linewise && !part.ends_with('\n') {
+                part.push('\n');
+            }
+            // The clipboard can contain arbitrarily large external data.
+            if part
+                .len()
+                .checked_mul(count)
+                .is_none_or(|size| size > 64 * 1024 * 1024)
+            {
+                log::warn!("Lightweight Vim paste exceeds the 64 MiB per-cursor limit");
+                return;
+            }
+            let mut insertion = part.repeat(count);
+            let visual_linewise = visual && self.selections.line_mode();
+            let mut range = if visual {
+                let Some((range, _)) =
+                    lightweight_vim_visual_range(&text, selection, visual_linewise)
+                else {
+                    continue;
+                };
+                range
+            } else {
+                selection.start.0..selection.end.0
+            };
+            let mut cursor_in_insert = 0;
+            if visual {
+                if visual_linewise {
+                    if range.end == text.len() && !text.ends_with('\n') && insertion.ends_with('\n')
+                    {
+                        insertion.pop();
+                    } else if !insertion.ends_with('\n')
+                        && text
+                            .get(range.clone())
+                            .is_some_and(|text| text.ends_with('\n'))
+                    {
+                        insertion.push('\n');
+                    }
+                }
+                if !linewise && !visual_linewise {
+                    cursor_in_insert = lightweight_vim::previous(&insertion, insertion.len());
+                }
+            } else if linewise {
+                if text.is_empty() {
+                    insertion.pop();
+                    range = 0..0;
+                } else if before {
+                    let offset = lightweight_vim::motion(
+                        &text,
+                        selection.head().0,
+                        lightweight_vim::Motion::LineStart,
+                        1,
+                    );
+                    range = offset..offset;
+                } else {
+                    let end = text
+                        .get(selection.head().0..)
+                        .and_then(|tail| tail.find('\n'))
+                        .map(|length| selection.head().0 + length + 1);
+                    if let Some(end) = end {
+                        range = end..end;
+                    } else {
+                        range = text.len()..text.len();
+                        if !insertion.ends_with('\n') {
+                            insertion.push('\n');
+                        }
+                        insertion.pop();
+                        insertion.insert(0, '\n');
+                        cursor_in_insert = 1;
+                    }
+                }
+            } else {
+                let offset = if before {
+                    selection.head().0
+                } else {
+                    let offset = lightweight_vim::next(&text, selection.head().0);
+                    if text.get(selection.head().0..offset) == Some("\n") {
+                        selection.head().0
+                    } else {
+                        offset
+                    }
+                };
+                range = offset..offset;
+                cursor_in_insert = lightweight_vim::previous(&insertion, insertion.len());
+            }
+            edits.push((range, insertion, cursor_in_insert));
+        }
+        edits.dedup_by(|left, right| left.0 == right.0 && left.1 == right.1);
+        let anchors = edits
+            .iter()
+            .map(|(range, _, cursor)| {
+                (
+                    snapshot
+                        .buffer_snapshot()
+                        .anchor_before(MultiBufferOffset(range.start)),
+                    *cursor,
+                )
+            })
+            .collect::<Vec<_>>();
+        self.finalize_last_transaction(cx);
+        let transaction = self.transact(window, cx, |editor, window, cx| {
+            editor.edit(
+                edits.into_iter().map(|(range, insertion, _)| {
+                    (
+                        MultiBufferOffset(range.start)..MultiBufferOffset(range.end),
+                        insertion,
+                    )
+                }),
+                cx,
+            );
+            let snapshot = editor.buffer.read(cx).snapshot(cx);
+            let cursors = anchors
+                .iter()
+                .map(|(anchor, offset)| anchor.to_offset(&snapshot).0 + offset)
+                .collect::<Vec<_>>();
+            editor.change_selections(Default::default(), window, cx, |selections| {
+                selections.set_line_mode(false);
+                selections.select_ranges(
+                    cursors
+                        .into_iter()
+                        .map(|offset| MultiBufferOffset(offset)..MultiBufferOffset(offset)),
+                );
+            });
+        });
+        if !self.lightweight_vim_replaying && transaction.is_some() {
+            self.lightweight_vim_last_change = if visual {
+                None
+            } else {
+                Some(LightweightVimChange {
+                    kind: LightweightVimChangeKind::Paste { before },
+                    count,
+                    inserted: Vec::new(),
+                    cursors: Vec::new(),
+                })
+            };
+        }
+        self.set_lightweight_vim_mode(LightweightVimMode::Normal);
     }
 
     pub fn single_line(window: &mut Window, cx: &mut Context<Self>) -> Self {
@@ -2251,6 +4043,14 @@ impl Editor {
         }
 
         let mut editor = Self {
+            lightweight_vim_input: Default::default(),
+            lightweight_vim_last_find: None,
+            lightweight_vim_last_search: None,
+            lightweight_vim_find_subscription: None,
+            lightweight_vim_change_transaction: None,
+            lightweight_vim_last_change: None,
+            lightweight_vim_insert_session: None,
+            lightweight_vim_replaying: false,
             vim_mode_enabled: EditorSettings::get_global(cx).vim_mode && mode.is_full(),
             focus_handle,
             lightweight_vim_mode: if EditorSettings::get_global(cx).vim_mode && mode.is_full() {
@@ -2660,6 +4460,9 @@ impl Editor {
 
         key_context.set("mode", mode);
         if self.vim_mode_enabled && self.mode.is_full() && self.pending_rename.is_none() {
+            if self.lightweight_vim_input.is_pending() {
+                key_context.add("VimCommandPending");
+            }
             match self.lightweight_vim_mode {
                 LightweightVimMode::Normal => key_context.add("VimControl"),
                 LightweightVimMode::Visual => {
@@ -4991,6 +6794,7 @@ impl Editor {
     }
 
     pub fn backspace(&mut self, _: &Backspace, window: &mut Window, cx: &mut Context<Self>) {
+        self.validate_lightweight_vim_insert(true, false, cx);
         if self.read_only(cx) {
             return;
         }
@@ -5042,6 +6846,7 @@ impl Editor {
     }
 
     pub fn delete(&mut self, _: &Delete, window: &mut Window, cx: &mut Context<Self>) {
+        self.validate_lightweight_vim_insert(false, true, cx);
         if self.read_only(cx) {
             return;
         }
@@ -8458,6 +10263,16 @@ impl Editor {
                 log::error!("unexpectedly ended a transaction that wasn't started by this editor");
             }
 
+            if self.vim_mode_enabled {
+                if self.lightweight_vim_replaying {
+                    self.lightweight_vim_change_transaction.get_or_insert(transaction_id);
+                } else if let Some(session) = self.lightweight_vim_insert_session.as_mut() {
+                    session.changed = true;
+                    self.lightweight_vim_change_transaction.get_or_insert(transaction_id);
+                } else {
+                    self.lightweight_vim_last_change = None;
+                }
+            }
             cx.emit(EditorEvent::Edited { transaction_id });
             Some(transaction_id)
         } else {
@@ -9940,12 +11755,17 @@ impl Editor {
     fn settings_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let vim_mode_enabled = EditorSettings::get_global(cx).vim_mode && self.mode.is_full();
         if vim_mode_enabled != self.vim_mode_enabled {
+            self.finish_lightweight_vim_change(cx);
             self.vim_mode_enabled = vim_mode_enabled;
             self.set_lightweight_vim_mode(if vim_mode_enabled {
                 LightweightVimMode::Normal
             } else {
                 LightweightVimMode::Insert
             });
+            if !vim_mode_enabled {
+                drop(self.clear_background_highlights(HighlightKey::VimSearch, cx));
+                self.lightweight_vim_last_search = None;
+            }
         }
 
         let new_language_settings = self.fetch_applicable_language_settings(cx);
@@ -10565,6 +12385,8 @@ impl Editor {
     }
 
     pub fn handle_blur(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.lightweight_vim_input.clear();
+        self.lightweight_vim_find_subscription.take();
         self.blink_manager.update(cx, BlinkManager::disable);
         self.buffer
             .update(cx, |buffer, cx| buffer.remove_active_selections(cx));

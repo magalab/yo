@@ -212,6 +212,7 @@ pub struct ActivityBarSettings {
     pub show: bool,
     pub position: settings::ActivityBarPosition,
     pub icon_size: Option<f32>,
+    pub panel_follows_position: bool,
 }
 
 impl Settings for ActivityBarSettings {
@@ -221,7 +222,24 @@ impl Settings for ActivityBarSettings {
             show: activity_bar.show.unwrap(),
             position: activity_bar.position.unwrap(),
             icon_size: activity_bar.icon_size.map(|size| size.0.clamp(12., 48.)),
+            panel_follows_position: activity_bar.panel_follows_position.unwrap_or(matches!(
+                activity_bar.position.unwrap(),
+                settings::ActivityBarPosition::TopLeft | settings::ActivityBarPosition::TopRight
+            )),
         }
+    }
+}
+
+impl ActivityBarSettings {
+    pub fn panel_dock_position(&self) -> Option<DockPosition> {
+        self.panel_follows_position.then_some(match self.position {
+            settings::ActivityBarPosition::Left | settings::ActivityBarPosition::TopLeft => {
+                DockPosition::Left
+            }
+            settings::ActivityBarPosition::Right | settings::ActivityBarPosition::TopRight => {
+                DockPosition::Right
+            }
+        })
     }
 }
 

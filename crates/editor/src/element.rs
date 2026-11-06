@@ -12,16 +12,14 @@ use crate::{
     ContextMenuPlacement, CursorShape, CustomBlockId, DisplayDiffHunk, DisplayPoint, DisplayRow,
     Editor, EditorMode, EditorSettings, EditorSnapshot, EditorStyle, FILE_HEADER_HEIGHT,
     FocusedBlock, GutterDimensions, HalfPageDown, HalfPageUp, HandleInput, InlayHintRefreshReason,
-    LineDown, LineHighlight, LineUp, MAX_LINE_LEN, MINIMAP_FONT_SIZE, MoveRight, NewlineAbove,
-    NewlineBelow, PageDown, PageUp, Point, RowExt, RowRangeExt, Selection,
-    SelectionDragState, SizingBehavior, SoftWrap, ToPoint,
+    LineDown, LineHighlight, LineUp, MAX_LINE_LEN, MINIMAP_FONT_SIZE, PageDown, PageUp, Point,
+    RowExt, RowRangeExt, Selection, SelectionDragState, SizingBehavior, SoftWrap, ToPoint,
     actions::{
-        Copy as EditorCopy, Cut, Delete, DeleteLine, DeleteToEndOfLine, MoveToBeginningOfLine,
-        MoveToEndOfLine, Paste, SelectRight, VimAppendLineEnd, VimChangeLine,
-        VimChangeToLineEnd, VimDeleteToLineEnd, VimInsertLineStart, VimAppendMode,
-        VimPasteAfter, VimPasteBefore, VimReplacePending,
-        VimDeleteSelection, VimInsertMode, VimNormalMode, VimOpenLineAbove, VimOpenLineBelow,
-        VimSubstituteCharacter, VimVisualLineMode, VimVisualMode, VimYankLine, VimYankSelection,
+        Copy as EditorCopy, VimAppendLineEnd, VimAppendMode, VimChangeLine,
+        VimChangeToLineEnd, VimDeleteSelection, VimDeleteToLineEnd, VimInsertLineStart,
+        VimInsertMode, VimOpenLineAbove, VimOpenLineBelow, VimPasteAfter, VimPasteBefore,
+        VimReplacePending, VimSubstituteCharacter, VimVisualLineMode, VimVisualMode, VimYankLine,
+        VimYankSelection,
     },
     code_context_menus::{CodeActionsMenu, MENU_ASIDE_MAX_WIDTH, MENU_ASIDE_MIN_WIDTH, MENU_GAP},
     column_pixels,
@@ -49,7 +47,7 @@ use collections::{BTreeMap, HashMap, HashSet};
 use git::{Oid, blame::BlameEntry, commit::ParsedCommitMessage};
 use gpui::{
     Action, Along, AnyElement, App, AppContext, AvailableSpace, Axis as ScrollbarAxis, BorderStyle,
-    Bounds, ClipboardEntry, ClipboardItem, ContentMask, Context, Corners, CursorStyle, DispatchPhase, Edges,
+    Bounds, ClipboardItem, ContentMask, Context, Corners, CursorStyle, DispatchPhase, Edges,
     Element, ElementInputHandler, Entity, Focusable as _, Font, FontId, FontWeight, KeyDownEvent,
     GlobalElementId, Hitbox, HitboxBehavior, Hsla, InteractiveElement, IntoElement, IsZero,
     ModifiersChangedEvent, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad,
@@ -168,6 +166,7 @@ impl SelectionLayout {
     fn new<T: ToPoint + ToDisplayPoint + Clone>(
         selection: Selection<T>,
         line_mode: bool,
+        vim_visual_line_mode: bool,
         cursor_offset: bool,
         cursor_shape: CursorShape,
         map: &DisplaySnapshot,
@@ -202,12 +201,20 @@ impl SelectionLayout {
 
         // vim visual line mode
         if line_mode {
-            let point_range = map.expand_to_line(point_selection.range());
+            let mut point_range = map.expand_to_line(point_selection.range());
+            if vim_visual_line_mode && point_range.end.column == 0 {
+                point_range.end.column = buffer_snapshot
+                    .line_len(MultiBufferRow(point_range.end.row));
+            }
             range = point_range.start.to_display_point(map)..point_range.end.to_display_point(map);
         }
 
         // any vim visual mode (including line mode)
-        if cursor_offset && !range.is_empty() && !selection.reversed {
+        if cursor_offset
+            && !vim_visual_line_mode
+            && !range.is_empty()
+            && !selection.reversed
+        {
             if head.column() > 0 {
                 head = map.clip_point(DisplayPoint::new(head.row(), head.column() - 1), Bias::Left);
             } else if head.row().0 > 0 {
@@ -287,124 +294,110 @@ impl EditorElement {
         crate::rust_analyzer_ext::apply_related_actions(editor, window, cx);
         crate::clangd_ext::apply_related_actions(editor, window, cx);
 
+        register_action(editor, window, Editor::vim_input);
+
         register_action(editor, window, Editor::open_context_menu);
-        register_action(editor, window, |editor, _: &VimInsertMode, _window, cx| {
-            if EditorSettings::get_global(cx).vim_mode {
-                editor.set_lightweight_vim_mode(super::LightweightVimMode::Insert);
-                cx.notify();
-            }
-        });
-        register_action(editor, window, |editor, _: &VimNormalMode, window, cx| {
-            if EditorSettings::get_global(cx).vim_mode {
-                match editor.lightweight_vim_mode {
-                    super::LightweightVimMode::Insert => {
-                        let display_snapshot = editor.display_snapshot(cx);
-                        let cursor_point = editor
-                            .selections
-                            .newest::<MultiBufferOffset>(&display_snapshot)
-                            .head()
-                            .to_point(&display_snapshot);
-                        if cursor_point.column > 0 {
-                            editor.move_left(&crate::MoveLeft, window, cx);
-                        }
-                    }
-                    super::LightweightVimMode::Visual => {
-                        editor.change_selections(Default::default(), window, cx, |selections| {
-                            selections.set_line_mode(false);
-                            selections.move_with(&mut |_, selection| {
-                                selection.collapse_to(selection.head(), Default::default());
-                            });
-                        });
-                    }
-                    _ => {}
-                }
-                editor.set_lightweight_vim_mode(super::LightweightVimMode::Normal);
-                cx.notify();
-            }
+        register_action(editor, window, Editor::vim_normal_mode);
+        register_action(editor, window, |editor, _: &VimInsertMode, window, cx| {
+            editor.vim_start_insert(super::LightweightVimInsertion::Before, window, cx);
         });
         register_action(editor, window, |editor, _: &VimAppendMode, window, cx| {
-            if EditorSettings::get_global(cx).vim_mode {
-                editor.move_right(&MoveRight, window, cx);
-                editor.set_lightweight_vim_mode(super::LightweightVimMode::Insert);
-                cx.notify();
-            }
-        });
-        register_action(editor, window, |editor, _: &VimInsertLineStart, window, cx| {
-            if EditorSettings::get_global(cx).vim_mode {
-                editor.move_to_beginning_of_line(
-                    &MoveToBeginningOfLine {
-                        stop_at_soft_wraps: false,
-                        stop_at_indent: true,
-                    },
-                    window,
-                    cx,
-                );
-                editor.set_lightweight_vim_mode(super::LightweightVimMode::Insert);
-                cx.notify();
-            }
-        });
-        register_action(editor, window, |editor, _: &VimAppendLineEnd, window, cx| {
-            if EditorSettings::get_global(cx).vim_mode {
-                editor.move_to_end_of_line(
-                    &MoveToEndOfLine {
-                        stop_at_soft_wraps: false,
-                    },
-                    window,
-                    cx,
-                );
-                editor.set_lightweight_vim_mode(super::LightweightVimMode::Insert);
-                cx.notify();
-            }
-        });
-        register_action(editor, window, |editor, _: &VimDeleteToLineEnd, window, cx| {
-            if EditorSettings::get_global(cx).vim_mode {
-                editor.delete_to_end_of_line(&DeleteToEndOfLine, window, cx);
-                cx.notify();
-            }
-        });
-        register_action(editor, window, |editor, _: &VimChangeToLineEnd, window, cx| {
-            if EditorSettings::get_global(cx).vim_mode {
-                editor.delete_to_end_of_line(&DeleteToEndOfLine, window, cx);
-                editor.set_lightweight_vim_mode(super::LightweightVimMode::Insert);
-                cx.notify();
-            }
-        });
-        register_action(editor, window, |editor, _: &VimSubstituteCharacter, window, cx| {
-            if EditorSettings::get_global(cx).vim_mode {
-                editor.delete(&Delete, window, cx);
-                editor.set_lightweight_vim_mode(super::LightweightVimMode::Insert);
-                cx.notify();
-            }
-        });
-        register_action(editor, window, |editor, _: &VimChangeLine, window, cx| {
-            if EditorSettings::get_global(cx).vim_mode {
-                editor.delete_line(&DeleteLine, window, cx);
-                editor.set_lightweight_vim_mode(super::LightweightVimMode::Insert);
-                cx.notify();
-            }
+            editor.vim_start_insert(super::LightweightVimInsertion::After, window, cx);
         });
         register_action(
             editor,
             window,
-            |editor, _: &VimOpenLineBelow, window, cx| {
-                if EditorSettings::get_global(cx).vim_mode {
-                    editor.newline_below(&NewlineBelow, window, cx);
-                    editor.set_lightweight_vim_mode(super::LightweightVimMode::Insert);
-                    cx.notify();
-                }
+            |editor, _: &VimInsertLineStart, window, cx| {
+                editor.vim_start_insert(super::LightweightVimInsertion::LineStart, window, cx);
+            },
+        );
+        register_action(
+            editor,
+            window,
+            |editor, _: &VimAppendLineEnd, window, cx| {
+                editor.vim_start_insert(super::LightweightVimInsertion::LineEnd, window, cx);
             },
         );
         register_action(
             editor,
             window,
             |editor, _: &VimOpenLineAbove, window, cx| {
-                if EditorSettings::get_global(cx).vim_mode {
-                    editor.newline_above(&NewlineAbove, window, cx);
-                    editor.set_lightweight_vim_mode(super::LightweightVimMode::Insert);
+                editor.vim_start_insert(super::LightweightVimInsertion::Above, window, cx);
+            },
+        );
+        register_action(
+            editor,
+            window,
+            |editor, _: &VimOpenLineBelow, window, cx| {
+                editor.vim_start_insert(super::LightweightVimInsertion::Below, window, cx);
+            },
+        );
+        register_action(
+            editor,
+            window,
+            |editor, _: &VimDeleteToLineEnd, window, cx| {
+                if editor.vim_mode_enabled {
+                    editor.vim_edit(
+                        super::lightweight_vim::Operator::Delete,
+                        super::lightweight_vim::Target::Motion(
+                            super::lightweight_vim::Motion::LineEnd,
+                        ),
+                        1,
+                        window,
+                        cx,
+                    );
                     cx.notify();
                 }
             },
         );
+        register_action(
+            editor,
+            window,
+            |editor, _: &VimChangeToLineEnd, window, cx| {
+                if editor.vim_mode_enabled {
+                    editor.vim_edit(
+                        super::lightweight_vim::Operator::Change,
+                        super::lightweight_vim::Target::Motion(
+                            super::lightweight_vim::Motion::LineEnd,
+                        ),
+                        1,
+                        window,
+                        cx,
+                    );
+                    cx.notify();
+                }
+            },
+        );
+        register_action(
+            editor,
+            window,
+            |editor, _: &VimSubstituteCharacter, window, cx| {
+                if editor.vim_mode_enabled {
+                    editor.vim_edit(
+                        super::lightweight_vim::Operator::Change,
+                        super::lightweight_vim::Target::Motion(
+                            super::lightweight_vim::Motion::Right,
+                        ),
+                        1,
+                        window,
+                        cx,
+                    );
+                    cx.notify();
+                }
+            },
+        );
+        register_action(editor, window, |editor, _: &VimChangeLine, window, cx| {
+            if editor.vim_mode_enabled {
+                editor.vim_edit(
+                    super::lightweight_vim::Operator::Change,
+                    super::lightweight_vim::Target::Lines,
+                    1,
+                    window,
+                    cx,
+                );
+                cx.notify();
+            }
+        });
         register_action(editor, window, |editor, _: &VimYankLine, window, cx| {
             if EditorSettings::get_global(cx).vim_mode {
                 let previous_line_mode = editor.selections.line_mode();
@@ -422,19 +415,29 @@ impl EditorElement {
                 cx.notify();
             }
         });
-        register_action(editor, window, |editor, _: &VimVisualLineMode, _window, cx| {
-            if EditorSettings::get_global(cx).vim_mode {
-                editor.selections.set_line_mode(true);
-                editor.set_lightweight_vim_mode(super::LightweightVimMode::Visual);
-                cx.notify();
-            }
-        });
+        register_action(
+            editor,
+            window,
+            |editor, _: &VimVisualLineMode, _window, cx| {
+                if EditorSettings::get_global(cx).vim_mode {
+                    editor.selections.set_line_mode(true);
+                    editor.set_lightweight_vim_mode(super::LightweightVimMode::Visual);
+                    cx.notify();
+                }
+            },
+        );
         register_action(
             editor,
             window,
             |editor, _: &VimYankSelection, window, cx| {
                 if EditorSettings::get_global(cx).vim_mode {
-                    editor.copy(&EditorCopy, window, cx);
+                    editor.vim_edit(
+                        super::lightweight_vim::Operator::Yank,
+                        super::lightweight_vim::Target::Lines,
+                        1,
+                        window,
+                        cx,
+                    );
                     editor.change_selections(Default::default(), window, cx, |selections| {
                         selections.set_line_mode(false);
                         selections.move_with(&mut |_, selection| {
@@ -451,125 +454,37 @@ impl EditorElement {
             window,
             |editor, _: &VimDeleteSelection, window, cx| {
                 if EditorSettings::get_global(cx).vim_mode {
-                    editor.cut(&Cut, window, cx);
-                    editor.selections.set_line_mode(false);
-                    editor.set_lightweight_vim_mode(super::LightweightVimMode::Normal);
+                    editor.vim_edit(
+                        super::lightweight_vim::Operator::Delete,
+                        super::lightweight_vim::Target::Lines,
+                        1,
+                        window,
+                        cx,
+                    );
                     cx.notify();
                 }
             },
         );
-        register_action(editor, window, |editor, _: &VimReplacePending, _window, cx| {
-            if EditorSettings::get_global(cx).vim_mode {
-                editor.set_lightweight_vim_mode(super::LightweightVimMode::ReplaceChar);
+        register_action(
+            editor,
+            window,
+            |editor, _: &VimReplacePending, _window, cx| {
+                if EditorSettings::get_global(cx).vim_mode {
+                    editor.set_lightweight_vim_mode(super::LightweightVimMode::ReplaceChar);
+                    cx.notify();
+                }
+            },
+        );
+        register_action(editor, window, |editor, _: &VimPasteBefore, window, cx| {
+            if editor.vim_mode_enabled {
+                editor.vim_paste(true, 1, window, cx);
                 cx.notify();
             }
         });
-        register_action(editor, window, |editor, _: &VimPasteBefore, window, cx| {
-            if EditorSettings::get_global(cx).vim_mode {
-                let linewise = cx
-                    .read_from_clipboard()
-                    .and_then(|item| {
-                        item.entries().iter().find_map(|entry| match entry {
-                            ClipboardEntry::String(entry) => {
-                                entry.metadata_json::<Vec<crate::ClipboardSelection>>()
-                            }
-                            _ => None,
-                        })
-                    })
-                    .is_some_and(|selections| {
-                        !selections.is_empty() && selections.iter().all(|selection| selection.is_entire_line)
-                    });
-                if linewise {
-                    editor.move_to_beginning_of_line(
-                        &MoveToBeginningOfLine {
-                            stop_at_soft_wraps: false,
-                            stop_at_indent: false,
-                        },
-                        window,
-                        cx,
-                    );
-                }
-                editor.paste(&Paste, window, cx);
-                if linewise {
-                    editor.move_up(&crate::MoveUp, window, cx);
-                    editor.move_to_beginning_of_line(
-                        &MoveToBeginningOfLine {
-                            stop_at_soft_wraps: false,
-                            stop_at_indent: false,
-                        },
-                        window,
-                        cx,
-                    );
-                }
-            }
-        });
         register_action(editor, window, |editor, _: &VimPasteAfter, window, cx| {
-            if EditorSettings::get_global(cx).vim_mode {
-                let clipboard_item = cx.read_from_clipboard();
-                let clipboard_selections = clipboard_item.as_ref().and_then(|item| {
-                    item.entries().iter().find_map(|entry| match entry {
-                        ClipboardEntry::String(entry) => {
-                            entry.metadata_json::<Vec<crate::ClipboardSelection>>()
-                        }
-                        _ => None,
-                    })
-                });
-                let linewise = clipboard_selections.as_ref().is_some_and(|selections| {
-                    !selections.is_empty() && selections.iter().all(|selection| selection.is_entire_line)
-                });
-                if linewise {
-                    let display_snapshot = editor.display_snapshot(cx);
-                    let cursor_row = editor
-                        .selections
-                        .newest::<MultiBufferOffset>(&display_snapshot)
-                        .head()
-                        .to_point(&display_snapshot)
-                        .row;
-                    let final_row = display_snapshot.buffer_snapshot().max_point().row;
-                    if cursor_row < final_row {
-                        editor.move_down(&crate::MoveDown, window, cx);
-                        editor.move_to_beginning_of_line(
-                            &MoveToBeginningOfLine {
-                                stop_at_soft_wraps: false,
-                                stop_at_indent: false,
-                            },
-                            window,
-                            cx,
-                        );
-                        editor.paste(&Paste, window, cx);
-                        editor.move_up(&crate::MoveUp, window, cx);
-                        editor.move_to_beginning_of_line(
-                            &MoveToBeginningOfLine {
-                                stop_at_soft_wraps: false,
-                                stop_at_indent: false,
-                            },
-                            window,
-                            cx,
-                        );
-                    } else if let Some(text) = clipboard_item.and_then(|item| item.text()) {
-                        editor.move_to_end_of_line(
-                            &crate::MoveToEndOfLine {
-                                stop_at_soft_wraps: false,
-                            },
-                            window,
-                            cx,
-                        );
-                        let line_text = text.strip_suffix('\n').unwrap_or(&text);
-                        let paste_text = format!("\n{line_text}");
-                        editor.do_paste(&paste_text, None, false, window, cx);
-                        editor.move_to_beginning_of_line(
-                            &MoveToBeginningOfLine {
-                                stop_at_soft_wraps: false,
-                                stop_at_indent: false,
-                            },
-                            window,
-                            cx,
-                        );
-                    }
-                } else {
-                    editor.move_right(&MoveRight, window, cx);
-                    editor.paste(&Paste, window, cx);
-                }
+            if editor.vim_mode_enabled {
+                editor.vim_paste(false, 1, window, cx);
+                cx.notify();
             }
         });
         register_action(editor, window, Editor::move_left);
@@ -1028,6 +943,29 @@ impl EditorElement {
                     return;
                 }
                 editor_entity.update(cx, |editor, cx| {
+                    if editor.lightweight_vim_input.is_pending()
+                        && (event.keystroke.modifiers.control
+                            || event.keystroke.modifiers.platform
+                            || event.keystroke.modifiers.alt)
+                    {
+                        editor.lightweight_vim_input.clear();
+                        editor.lightweight_vim_find_subscription.take();
+                        cx.notify();
+                        return;
+                    }
+                    if editor.lightweight_vim_input.is_pending()
+                        && let Some(key) = event.keystroke.key_char.as_deref()
+                    {
+                        editor.vim_input(
+                            &crate::VimInput {
+                                key: key.to_string(),
+                            },
+                            window,
+                            cx,
+                        );
+                        cx.stop_propagation();
+                        return;
+                    }
                     if editor.lightweight_vim_mode != super::LightweightVimMode::ReplaceChar {
                         return;
                     }
@@ -1036,17 +974,7 @@ impl EditorElement {
                         cx.stop_propagation();
                         cx.notify();
                     } else if let Some(replacement) = event.keystroke.key_char.as_deref() {
-                        editor.select_right(&SelectRight, window, cx);
-                        let has_character = editor
-                            .selections
-                            .all::<MultiBufferOffset>(&editor.display_snapshot(cx))
-                            .iter()
-                            .any(|selection| !selection.is_empty());
-                        if has_character {
-                            editor.handle_input(replacement, window, cx);
-                            editor.move_left(&crate::MoveLeft, window, cx);
-                        }
-                        editor.set_lightweight_vim_mode(super::LightweightVimMode::Normal);
+                        editor.vim_replace_char(replacement, 1, window, cx);
                         cx.stop_propagation();
                         cx.notify();
                     }
@@ -1123,6 +1051,8 @@ impl EditorElement {
                     let layout = SelectionLayout::new(
                         selection,
                         editor.selections.line_mode(),
+                        editor.lightweight_vim_mode == super::LightweightVimMode::Visual
+                            && editor.selections.line_mode(),
                         editor.cursor_offset_on_selection,
                         editor.rendered_cursor_shape(),
                         &snapshot.display_snapshot,
@@ -1170,6 +1100,7 @@ impl EditorElement {
                     let drag_cursor_layout = SelectionLayout::new(
                         *drop_cursor,
                         false,
+                        false,
                         editor.cursor_offset_on_selection,
                         CursorShape::Bar,
                         &snapshot.display_snapshot,
@@ -1192,6 +1123,7 @@ impl EditorElement {
                         SelectionLayout::new(
                             selection,
                             line_mode,
+                            false,
                             cursor_offset_on_selection,
                             cursor_shape,
                             &snapshot.display_snapshot,
@@ -8567,6 +8499,8 @@ impl Element for EditorElement {
                             SelectionLayout::new(
                                 newest,
                                 editor.selections.line_mode(),
+                                editor.lightweight_vim_mode == super::LightweightVimMode::Visual
+                                    && editor.selections.line_mode(),
                                 editor.cursor_offset_on_selection,
                                 editor.rendered_cursor_shape(),
                                 &snapshot,
@@ -10967,6 +10901,7 @@ mod tests {
                     reversed,
                     goal: SelectionGoal::None,
                 },
+                false,
                 false,
                 cursor_offset,
                 CursorShape::Bar,

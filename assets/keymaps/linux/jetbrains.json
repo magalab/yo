@@ -201,4 +201,11 @@
       "ctrl-k": null,
     },
   },
+  {
+    "context": "VimControl && !menu",
+    "bindings": {
+      "ctrl-d": "editor::HalfPageDown",
+      "ctrl-u": "editor::HalfPageUp",
+    },
+  },
 ]

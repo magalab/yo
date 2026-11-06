@@ -277,6 +277,10 @@ actions!(
         CloseAllDocks,
         /// Toggles all docks.
         ToggleAllDocks,
+        /// Shows or hides the activity bar.
+        ToggleActivityBar,
+        /// Toggles whether side panels follow the activity bar's position.
+        ToggleActivityBarPanelFollow,
         /// Closes the current window.
         CloseWindow,
         /// Closes the current project.
@@ -352,6 +356,14 @@ actions!(
         ToggleExpandItem,
     ]
 );
+
+/// Changes the activity bar's placement in the workspace.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, JsonSchema, Action)]
+#[action(namespace = workspace)]
+#[serde(deny_unknown_fields)]
+pub struct SetActivityBarPosition {
+    pub position: settings::ActivityBarPosition,
+}
 
 /// Activates a specific pane by its index.
 #[derive(Clone, Deserialize, PartialEq, JsonSchema, Action)]
@@ -2636,7 +2648,7 @@ impl Workspace {
                         .insert(project_path.clone());
                 }
 
-                history.insert(project_path, (fs_path, std::usize::MAX));
+                history.insert(project_path, (fs_path, usize::MAX));
             }
         }
 
@@ -6535,6 +6547,9 @@ impl Workspace {
             .on_action(cx.listener(Self::activate_pane_at_index))
             .on_action(cx.listener(Self::move_item_to_pane_at_index))
             .on_action(cx.listener(Self::move_focused_panel_to_next_position))
+            .on_action(cx.listener(Self::set_activity_bar_position))
+            .on_action(cx.listener(Self::toggle_activity_bar))
+            .on_action(cx.listener(Self::toggle_activity_bar_panel_follow))
             .on_action(cx.listener(Self::reopen_last_picker))
             .on_action(cx.listener(Self::toggle_theme_mode))
             .when(!active_item_is_read_only, |this| {
@@ -7114,6 +7129,11 @@ impl Workspace {
             DockPosition::Bottom => ("bottom-dock", t!("Bottom dock")),
         };
         let dock_is_open = dock.read(cx).is_open();
+        let has_top_activity_bar = matches!(
+            (self.activity_bar_side(cx), position),
+            (Some(settings::ActivityBarPosition::TopLeft), DockPosition::Left)
+                | (Some(settings::ActivityBarPosition::TopRight), DockPosition::Right)
+        );
         let a11y_active = window.is_a11y_active();
 
         let mut container = div()
@@ -7128,7 +7148,15 @@ impl Workspace {
             .flex()
             .overflow_hidden()
             .flex_none()
-            .child(dock.clone());
+            .when_else(
+                has_top_activity_bar,
+                |this| {
+                    this.flex_col()
+                        .child(self.activity_bar.clone())
+                        .child(div().flex_1().min_h_0().w_full().child(dock.clone()))
+                },
+                |this| this.child(dock.clone()),
+            );
 
         // Apply sizing only when the dock is open. When closed the dock is still
         // included in the element tree so its focus handle remains mounted — without
@@ -7173,6 +7201,14 @@ impl Workspace {
                     .unwrap_or_else(|| panel.default_size(window, cx));
                 container = container.h(size);
             }
+        } else if has_top_activity_bar
+            && position.axis() == Axis::Horizontal
+            && let Some(panel) = dock.active_panel()
+        {
+            let size = dock
+                .stored_panel_size(panel.as_ref(), window, cx)
+                .unwrap_or_else(|| panel.default_size(window, cx));
+            container = container.w(size);
         }
 
         Some(container)
@@ -7517,6 +7553,52 @@ impl Workspace {
         let fs = self.project().read(cx).fs().clone();
         settings::update_settings_file(fs, cx, move |settings, _cx| {
             theme_settings::set_mode(settings, next_mode);
+        });
+    }
+
+    fn set_activity_bar_position(
+        &mut self,
+        action: &SetActivityBarPosition,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let position = action.position;
+        let fs = <dyn fs::Fs>::global(cx);
+        settings::update_settings_file(fs, cx, move |settings, _cx| {
+            settings.activity_bar.get_or_insert_default().position = Some(position);
+        });
+        let dock = match position {
+            settings::ActivityBarPosition::TopLeft => Some(self.left_dock.clone()),
+            settings::ActivityBarPosition::TopRight => Some(self.right_dock.clone()),
+            _ => None,
+        };
+        if let Some(dock) = dock {
+            dock.update(cx, |dock, cx| dock.set_open(true, window, cx));
+        }
+    }
+
+    fn toggle_activity_bar(
+        &mut self,
+        _: &ToggleActivityBar,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let show = !ActivityBarSettings::get_global(cx).show;
+        let fs = <dyn fs::Fs>::global(cx);
+        settings::update_settings_file(fs, cx, move |settings, _cx| {
+            settings.activity_bar.get_or_insert_default().show = Some(show);
+        });
+    }
+
+    fn toggle_activity_bar_panel_follow(
+        &mut self,
+        _: &ToggleActivityBarPanelFollow,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let follows = !ActivityBarSettings::get_global(cx).panel_follows_position;
+        settings::update_settings_file(<dyn fs::Fs>::global(cx), cx, move |settings, _cx| {
+            settings.activity_bar.get_or_insert_default().panel_follows_position = Some(follows);
         });
     }
 

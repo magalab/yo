@@ -8,14 +8,11 @@ use settings::{BaseKeymap, Settings, update_settings_file};
 use theme::{Appearance, SystemAppearance, ThemeRegistry};
 use theme_settings::{ThemeAppearanceMode, ThemeName, ThemeSelection, ThemeSettings};
 use ui::{
-    StatefulInteractiveElement, SwitchField, TintColor, ToggleButtonGroup, ToggleButtonGroupSize,
-    ToggleButtonSimple, ToggleButtonWithIcon, Tooltip, prelude::*,
+    StatefulInteractiveElement, SwitchField, ToggleButtonGroup, ToggleButtonGroupSize,
+    ToggleButtonSimple, Tooltip, prelude::*,
 };
 
-use crate::{
-    ImportCursorSettings, ImportVsCodeSettings, SettingsImportState,
-    theme_preview::{ThemePreviewStyle, ThemePreviewTile},
-};
+use crate::theme_preview::{ThemePreviewStyle, ThemePreviewTile};
 
 const LIGHT_THEMES: [&str; 3] = ["Yo Light", "Catppuccin Latte", "One Light"];
 const DARK_THEMES: [&str; 3] = ["Yo Dark", "Catppuccin Mocha", "One Dark"];
@@ -220,67 +217,49 @@ fn render_theme_section(tab_index: &mut isize, cx: &mut App) -> impl IntoElement
     }
 }
 
-fn render_base_keymap_section(tab_index: &mut isize, cx: &mut App) -> impl IntoElement {
-    let base_keymap = match BaseKeymap::get_global(cx) {
-        BaseKeymap::Zed => Some(0),
-        BaseKeymap::VSCode => Some(1),
-        BaseKeymap::JetBrains => Some(2),
-        BaseKeymap::SublimeText => Some(3),
-        BaseKeymap::Atom => Some(4),
-        BaseKeymap::Emacs => Some(5),
-        BaseKeymap::Cursor => Some(6),
-        BaseKeymap::TextMate => Some(7),
-        BaseKeymap::None => None,
-    };
-
-    return v_flex().gap_2().child(Label::new(t!("Base Keymap"))).child(
-        ToggleButtonGroup::two_rows(
-            "base_keymap_selection",
-            [
-                ToggleButtonWithIcon::new("Yo", IconName::App, |_, _, cx| {
-                    write_keymap_base(BaseKeymap::Zed, cx);
-                }),
-                ToggleButtonWithIcon::new("VS Code", IconName::EditorVsCode, |_, _, cx| {
-                    write_keymap_base(BaseKeymap::VSCode, cx);
-                }),
-                ToggleButtonWithIcon::new("JetBrains", IconName::EditorJetBrains, |_, _, cx| {
-                    write_keymap_base(BaseKeymap::JetBrains, cx);
-                }),
-                ToggleButtonWithIcon::new("Sublime Text", IconName::EditorSublime, |_, _, cx| {
-                    write_keymap_base(BaseKeymap::SublimeText, cx);
-                }),
-            ],
-            [
-                ToggleButtonWithIcon::new("Atom", IconName::EditorAtom, |_, _, cx| {
-                    write_keymap_base(BaseKeymap::Atom, cx);
-                }),
-                ToggleButtonWithIcon::new("Emacs", IconName::EditorEmacs, |_, _, cx| {
-                    write_keymap_base(BaseKeymap::Emacs, cx);
-                }),
-                ToggleButtonWithIcon::new("Cursor", IconName::EditorCursor, |_, _, cx| {
-                    write_keymap_base(BaseKeymap::Cursor, cx);
-                }),
-                ToggleButtonWithIcon::new("TextMate", IconName::Keyboard, |_, _, cx| {
-                    write_keymap_base(BaseKeymap::TextMate, cx);
-                }),
-            ],
+fn render_editing_section(tab_index: &mut isize, cx: &mut App) -> impl IntoElement {
+    let vim_enabled = cx
+        .global::<settings::SettingsStore>()
+        .merged_settings()
+        .editor
+        .vim_mode
+        .unwrap_or(false);
+    let fs = <dyn Fs>::global(cx);
+    *tab_index += 1;
+    v_flex()
+        .gap_3()
+        .child(
+            h_flex()
+                .justify_between()
+                .child(Label::new(t!("Base Keymap")))
+                .child(Label::new(BaseKeymap::get_global(cx).to_string()).color(Color::Muted)),
         )
-        .when_some(base_keymap, |this, base_keymap| {
-            this.selected_index(base_keymap)
-        })
-        .full_width()
-        .tab_index(tab_index)
-        .size(ui::ToggleButtonGroupSize::Medium)
-        .style(ui::ToggleButtonGroupStyle::Outlined),
-    );
-
-    fn write_keymap_base(keymap_base: BaseKeymap, cx: &App) {
-        let fs = <dyn Fs>::global(cx);
-
-        update_settings_file(fs, cx, move |setting, _| {
-            setting.base_keymap = Some(keymap_base.into());
-        });
-    }
+        .child(Label::new(t!("You can change the keymap later in Settings.")).color(Color::Muted))
+        .child(
+            SwitchField::new(
+                "onboarding-lightweight-vim",
+                Some(t!("Enable Lightweight Vim")),
+                Some(t!(
+                    "Use Normal, Insert, and Visual modes with common Vim commands."
+                )),
+                if vim_enabled {
+                    ToggleState::Selected
+                } else {
+                    ToggleState::Unselected
+                },
+                move |selection, _, cx| {
+                    let enabled = match selection {
+                        ToggleState::Selected => true,
+                        ToggleState::Unselected => false,
+                        ToggleState::Indeterminate => return,
+                    };
+                    update_settings_file(fs.clone(), cx, move |settings, _| {
+                        settings.editor.vim_mode = Some(enabled);
+                    });
+                },
+            )
+            .tab_index(*tab_index - 1),
+        )
 }
 
 fn render_worktree_auto_trust_switch(tab_index: &mut isize, cx: &mut App) -> impl IntoElement {
@@ -324,67 +303,6 @@ fn render_worktree_auto_trust_switch(tab_index: &mut isize, cx: &mut App) -> imp
     .tooltip(Tooltip::text(tooltip_description))
 }
 
-fn render_setting_import_button(
-    tab_index: isize,
-    label: SharedString,
-    action: &dyn Action,
-    imported: bool,
-) -> impl IntoElement + 'static {
-    let action = action.boxed_clone();
-
-    Button::new(label.clone(), label)
-        .style(ButtonStyle::OutlinedGhost)
-        .size(ButtonSize::Medium)
-        .label_size(LabelSize::Small)
-        .selected_style(ButtonStyle::Tinted(TintColor::Accent))
-        .toggle_state(imported)
-        .tab_index(tab_index)
-        .when(imported, |this| {
-            this.end_icon(Icon::new(IconName::Check).size(IconSize::Small))
-                .color(Color::Success)
-        })
-        .on_click(move |_, window, cx| {
-            window.dispatch_action(action.boxed_clone(), cx);
-        })
-}
-
-fn render_import_settings_section(tab_index: &mut isize, cx: &mut App) -> impl IntoElement {
-    let import_state = SettingsImportState::global(cx);
-    let imports: [(SharedString, &dyn Action, bool); 2] = [
-        (
-            "VS Code".into(),
-            &ImportVsCodeSettings { skip_prompt: false },
-            import_state.vscode,
-        ),
-        (
-            "Cursor".into(),
-            &ImportCursorSettings { skip_prompt: false },
-            import_state.cursor,
-        ),
-    ];
-
-    let [vscode, cursor] = imports.map(|(label, action, imported)| {
-        *tab_index += 1;
-        render_setting_import_button(*tab_index - 1, label, action, imported)
-    });
-
-    h_flex()
-        .gap_2()
-        .flex_wrap()
-        .justify_between()
-        .child(
-            v_flex()
-                .gap_0p5()
-                .max_w_5_6()
-                .child(Label::new(t!("Import Settings")))
-                .child(
-                    Label::new(t!("Automatically pull your settings from other editors"))
-                        .color(Color::Muted),
-                ),
-        )
-        .child(h_flex().gap_1().child(vscode).child(cursor))
-}
-
 #[cfg(target_os = "macos")]
 fn render_install_cli_section(tab_index: &mut isize) -> impl IntoElement {
     *tab_index += 1;
@@ -424,8 +342,7 @@ pub(crate) fn render_basics_page(cx: &mut App) -> impl IntoElement {
         .id("basics-page")
         .gap_6()
         .child(render_theme_section(&mut tab_index, cx))
-        .child(render_base_keymap_section(&mut tab_index, cx))
-        .child(render_import_settings_section(&mut tab_index, cx));
+        .child(render_editing_section(&mut tab_index, cx));
 
     #[cfg(target_os = "macos")]
     let page = page.child(render_install_cli_section(&mut tab_index));

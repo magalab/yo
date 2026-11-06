@@ -755,14 +755,27 @@ impl VsCodeSettings {
             show: self
                 .read_str("workbench.activityBar.location")
                 .and_then(|location| (location == "hidden").then_some(false)),
-            position: self.read_str("workbench.sideBar.location").and_then(
-                |location| match location {
-                    "left" => Some(ActivityBarPosition::Left),
-                    "right" => Some(ActivityBarPosition::Right),
+            position: self
+                .read_str("workbench.activityBar.location")
+                .and_then(|location| match location {
+                    "top" => Some(if self.read_str("workbench.sideBar.location") == Some("right") {
+                        ActivityBarPosition::TopRight
+                    } else {
+                        ActivityBarPosition::TopLeft
+                    }),
                     _ => None,
-                },
-            ),
+                })
+                .or_else(|| {
+                    self.read_str("workbench.sideBar.location").and_then(
+                        |location| match location {
+                            "left" => Some(ActivityBarPosition::Left),
+                            "right" => Some(ActivityBarPosition::Right),
+                            _ => None,
+                        },
+                    )
+                }),
             icon_size: None,
+            panel_follows_position: None,
         })
     }
 

@@ -171,7 +171,17 @@ where
     }
 
     fn position(&self, window: &Window, cx: &App) -> DockPosition {
-        self.read(cx).position(window, cx)
+        let panel = self.read(cx);
+        let configured = panel.position(window, cx);
+        if configured != DockPosition::Bottom
+            && panel.icon(window, cx).is_some()
+            && let Some(target) = ActivityBarSettings::get_global(cx).panel_dock_position()
+            && panel.position_is_valid(target)
+        {
+            target
+        } else {
+            configured
+        }
     }
 
     fn position_is_valid(&self, position: DockPosition, cx: &App) -> bool {
@@ -666,7 +676,7 @@ impl Dock {
                 let panel = panel.clone();
 
                 move |this, window, cx| {
-                    let new_position = panel.read(cx).position(window, cx);
+                    let new_position = PanelHandle::position(&panel, window, cx);
                     if new_position == this.position {
                         return;
                     }
@@ -766,7 +776,7 @@ impl Dock {
                             .update(cx, |workspace, cx| {
                                 workspace.zoomed = Some(panel.downgrade().into());
                                 workspace.zoomed_position =
-                                    Some(panel.read(cx).position(window, cx));
+                                    Some(PanelHandle::position(panel, window, cx));
                                 cx.emit(Event::ZoomChanged);
                             })
                             .ok();
