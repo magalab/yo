@@ -6,7 +6,6 @@ import { routes } from './routes';
 import { SITE_URL } from './consts';
 
 const publicDir = path.join(import.meta.dir, '..', 'public');
-const installScript = path.join(import.meta.dir, '..', '..', 'script', 'install.sh');
 
 let clientAssets = new Map<string, Blob>();
 
@@ -43,8 +42,6 @@ const server = serve({
 
       const asset = clientAssets.get(pathname);
       if (asset) return new Response(asset);
-      if (pathname === '/install.sh') return new Response(Bun.file(installScript));
-
       const file = Bun.file(path.join(publicDir, pathname));
       if (await file.exists()) return new Response(file);
 

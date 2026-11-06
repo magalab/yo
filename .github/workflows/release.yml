@@ -12,7 +12,7 @@ jobs:
   check_version:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check that the tag matches the crate version
         run: |
           version=$(sed -n 's/^version = "\(.*\)"/\1/p' crates/yo/Cargo.toml | head -1)
@@ -33,7 +33,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 300
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Rust toolchain
         run: rustup show
       - name: Install lld
@@ -64,14 +64,14 @@ jobs:
       - name: Check that every string and command has its Chinese text
         if: matrix.arch == 'aarch64'
         run: script/check-translations --binary target/aarch64-apple-darwin/release/yo
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos-${{ matrix.arch }}
           path: |
             target/${{ matrix.arch }}-apple-darwin/release/Yo-${{ matrix.arch }}.dmg
             target/yo-remote-server-macos-${{ matrix.arch }}.gz
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos-${{ matrix.arch }}-dsym
           path: target/${{ matrix.arch }}-apple-darwin/release/Yo.dSYM.zip
@@ -93,7 +93,7 @@ jobs:
       CC: clang
       CXX: clang++
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Linux dependencies
         run: ./script/linux
       - name: Install Rust toolchain
@@ -102,7 +102,7 @@ jobs:
         run: echo stable > crates/yo/RELEASE_CHANNEL
       - name: Bundle
         run: ./script/bundle-linux
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux-${{ matrix.arch }}
           path: |
@@ -115,7 +115,7 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 300
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Rust toolchain
         run: rustup show
       - name: Use the stable release channel
@@ -124,7 +124,7 @@ jobs:
       - name: Bundle
         run: script/bundle-windows.ps1 -Architecture x86_64
         shell: pwsh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows-x86_64
           path: |
@@ -136,10 +136,10 @@ jobs:
     needs: [bundle_mac, bundle_linux, bundle_windows]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Fetch tags for the changelog link
         run: git fetch --quiet --tags --force --depth=1 origin
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
@@ -160,7 +160,7 @@ jobs:
             fi
           } > release-body.md
       - name: Create the GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           body_path: release-body.md
           files: artifacts/**

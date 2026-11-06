@@ -18,7 +18,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 300
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Select Xcode
@@ -30,7 +30,7 @@ jobs:
       - name: Install Rust toolchain
         run: rustup show
       - name: Cache Cargo dependencies and build outputs
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry/index
@@ -49,7 +49,7 @@ jobs:
         run: script/bundle-mac aarch64-apple-darwin
       - name: Check Chinese translations
         run: script/check-translations --binary target/aarch64-apple-darwin/release/yo
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos-aarch64-develop
           path: |

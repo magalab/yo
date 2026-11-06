@@ -41,7 +41,7 @@ export PATH="$HOME/.local/bin:$PATH"
 Run this in a terminal:
 
 ```sh
-curl -fsSL https://yo.lurenyang.com/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/magalab/yo/develop/script/install.sh | sh
 ```
 
 It installs Yo into `~/.local`, adds the `yo` command, and adds Yo to your app menu with its icon. Run it again any time to reinstall. Yo keeps itself up to date after that.

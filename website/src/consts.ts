@@ -1,5 +1,5 @@
 export const SITE_URL = (process.env.SITE_URL ?? 'https://yo.lurenyang.com').replace(/\/$/, '');
-export const INSTALL_COMMAND = `curl -fsSL ${SITE_URL}/install.sh | sh`;
+export const INSTALL_COMMAND = 'curl -fsSL https://raw.githubusercontent.com/magalab/yo/develop/script/install.sh | sh';
 export const SITE_TITLE = 'Yo';
 export const SITE_DESCRIPTION =
   'Yo is the fast, native code editor, written in Rust. Batteries included, with coding agents built in. No account, no telemetry.';
