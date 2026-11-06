@@ -88,7 +88,7 @@ async-channel.workspace = true
 stacksafe = { workspace = true, optional = true }
 strum.workspace = true
 sum_tree.workspace = true
-taffy = "=0.13.0"
+taffy = "=0.15.1"
 thiserror.workspace = true
 tracing.workspace = true
 gpui_util.workspace = true
@@ -96,7 +96,7 @@ hdrhistogram = { workspace = true, optional = true }
 waker-fn = "1.2.0"
 lyon = "1.0"
 pin-project = "1.1.10"
-spin = "0.10.0"
+spin = "0.12.3"
 pollster.workspace = true
 url.workspace = true
 uuid.workspace = true

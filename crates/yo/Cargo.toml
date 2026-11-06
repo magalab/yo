@@ -103,7 +103,6 @@ gpui_platform = { workspace = true, features = [
 gpui_tokio.workspace = true
 i18n.workspace = true
 image = { workspace = true, optional = true }
-spin = "0.10.0"
 itertools.workspace = true
 rayon.workspace = true
 semver.workspace = true
