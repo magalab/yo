@@ -879,7 +879,7 @@
   "The language of Yo's interface.": "Yo 界面的语言。",
   "The language of Yo's interface. `system` follows your system language.\n\nDefault: system": "Yo 界面的语言。`system` 表示跟随系统语言。\n\n默认值：system",
   "The layout of window control buttons in the title bar (Linux only).\n\nThis can be set to \"platform_default\" to follow the system configuration, or\n\"standard\" to use Yo's built-in layout. For custom layouts, use a\nGNOME-style layout string like \"close:minimize,maximize\".\n\nDefault: \"platform_default\"": "标题栏中窗口控制按钮的布局（仅限 Linux）。\n\n设为 \"platform_default\" 会跟随系统配置，设为 \"standard\" 会使用 Yo 内置的布局。如需自定义布局，请使用 GNOME 风格的布局字符串，例如 \"close:minimize,maximize\"。\n\n默认值：\"platform_default\"",
-  "The name of the Yo theme to use.": "要使用的 Yo 主题名称。",
+  "The name of the theme to use.": "要使用的主题名称。",
   "The path to the npm binary Yo should use (defaults to `.path/../npm`).": "Yo 应使用的 npm 可执行文件路径（默认为 `.path/../npm`）。",
   "This base keymap settings adjusts the default keybindings in Yo to be similar\nto other common code editors. By default, Yo's keymap closely follows VSCode's\nkeymap, with minor adjustments, this corresponds to the \"VSCode\" setting.\n\nDefault: VSCode": "此基础键位映射设置会调整 Yo 的默认快捷键，使其与其他常见代码编辑器相似。默认情况下，Yo 的键位映射与 VSCode 的键位映射基本一致，仅有少量调整，对应 \"VSCode\" 设置。\n\n默认值：VSCode",
   "Use LSP tasks over Yo language extension ones.\nIf no LSP tasks are returned due to error/timeout or regular execution,\nYo language extension tasks will be used instead.\n\nOther Yo tasks will still be shown:\n* Yo task from either of the task config file\n* Yo task from history (e.g. one-off task was spawned before)": "优先使用 LSP 任务，而不是 Yo 语言扩展提供的任务。如果因错误、超时或正常执行而没有返回 LSP 任务，则改用 Yo 语言扩展的任务。\n\n其他 Yo 任务仍会显示：\n* 来自任一任务配置文件的 Yo 任务\n* 来自历史记录的 Yo 任务（例如之前运行过的一次性任务）",

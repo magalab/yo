@@ -7,28 +7,20 @@ use gpui::App;
 pub fn load_fonts(cx: &App) -> bool {
     let fonts = [
         Cow::Borrowed(
-            include_bytes!("../../../../assets/fonts/ibm-plex-sans/IBMPlexSans-Regular.ttf")
+            include_bytes!("../../../../assets/fonts/jetbrains-mono/JetBrainsMono-Regular.ttf")
                 .as_slice(),
         ),
         Cow::Borrowed(
-            include_bytes!("../../../../assets/fonts/ibm-plex-sans/IBMPlexSans-Italic.ttf")
+            include_bytes!("../../../../assets/fonts/jetbrains-mono/JetBrainsMono-Bold.ttf")
                 .as_slice(),
         ),
         Cow::Borrowed(
-            include_bytes!("../../../../assets/fonts/ibm-plex-sans/IBMPlexSans-SemiBold.ttf")
+            include_bytes!("../../../../assets/fonts/jetbrains-mono/JetBrainsMono-Italic.ttf")
                 .as_slice(),
         ),
         Cow::Borrowed(
-            include_bytes!("../../../../assets/fonts/ibm-plex-sans/IBMPlexSans-SemiBoldItalic.ttf")
+            include_bytes!("../../../../assets/fonts/jetbrains-mono/JetBrainsMono-BoldItalic.ttf")
                 .as_slice(),
-        ),
-        Cow::Borrowed(
-            include_bytes!("../../../../assets/fonts/jetbrains-mono/JetBrainsMono-Regular.ttf").as_slice(),
-        ),
-        Cow::Borrowed(include_bytes!("../../../../assets/fonts/jetbrains-mono/JetBrainsMono-Bold.ttf").as_slice()),
-        Cow::Borrowed(include_bytes!("../../../../assets/fonts/jetbrains-mono/JetBrainsMono-Italic.ttf").as_slice()),
-        Cow::Borrowed(
-            include_bytes!("../../../../assets/fonts/jetbrains-mono/JetBrainsMono-BoldItalic.ttf").as_slice(),
         ),
     ];
     if let Err(error) = cx.text_system().add_fonts(fonts.into()) {

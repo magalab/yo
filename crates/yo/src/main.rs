@@ -1111,11 +1111,12 @@ fn handle_open_request(request: OpenRequest, app_state: Arc<AppState>, cx: &mut 
     }
 }
 
-const THEME_RESET_TO_YO_DEFAULT_KEY: &str = "theme_reset_to_yo_default";
+// Keep the stored key stable so this one-time migration does not run again for existing users.
+const THEME_RESET_TO_DEFAULT_KEY: &str = "theme_reset_to_yo_default";
 
 fn reset_theme_to_default_once(fs: Arc<dyn Fs>, cx: &mut App) {
     let kvp = KeyValueStore::global(cx);
-    if !matches!(kvp.read_kvp(THEME_RESET_TO_YO_DEFAULT_KEY), Ok(None)) {
+    if !matches!(kvp.read_kvp(THEME_RESET_TO_DEFAULT_KEY), Ok(None)) {
         return;
     }
     let reset = settings::update_settings_file_with_completion(fs, cx, |settings, _| {
@@ -1123,7 +1124,7 @@ fn reset_theme_to_default_once(fs: Arc<dyn Fs>, cx: &mut App) {
     });
     cx.spawn(async move |_| {
         reset.await??;
-        kvp.write_kvp(THEME_RESET_TO_YO_DEFAULT_KEY.to_string(), "1".to_string())
+        kvp.write_kvp(THEME_RESET_TO_DEFAULT_KEY.to_string(), "1".to_string())
             .await
     })
     .detach_and_log_err(cx);

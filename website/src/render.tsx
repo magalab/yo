@@ -48,7 +48,6 @@ ${alternates}    <link rel="icon" href="/app-icon.svg" type="image/svg+xml" />
     <meta name="twitter:image" content="${image}" />
     <meta name="theme-color" content="#0f1116" />
     <script>document.documentElement.classList.add('js')</script>
-    <link rel="preload" href="/fonts/ibm-plex-sans-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="${css}" />
 ${js ? `    <script type="module" src="${js}"></script>\n` : ''}  </head>
   <body>

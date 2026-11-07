@@ -5561,10 +5561,6 @@ mod tests {
                     .load("fonts/jetbrains-mono/JetBrainsMono-Regular.ttf")
                     .unwrap()
                     .unwrap(),
-                Assets
-                    .load("fonts/ibm-plex-sans/IBMPlexSans-Regular.ttf")
-                    .unwrap()
-                    .unwrap(),
             ])
             .unwrap();
         let themes = ThemeRegistry::default();

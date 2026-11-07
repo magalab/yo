@@ -222,7 +222,7 @@ pub struct ThemeSettingsContent {
     /// The theme to use for the markdown preview.
     /// Falls back to the main editor theme if unset.
     pub markdown_preview_theme: Option<ThemeSelection>,
-    /// The name of the Yo theme to use.
+    /// The name of the theme to use.
     pub theme: Option<ThemeSelection>,
     /// The name of the icon theme to use.
     pub icon_theme: Option<IconThemeSelection>,
@@ -346,8 +346,8 @@ pub enum ThemeSelection {
     },
 }
 
-pub const DEFAULT_LIGHT_THEME: &'static str = "Yo Light";
-pub const DEFAULT_DARK_THEME: &'static str = "Yo Dark";
+pub const DEFAULT_LIGHT_THEME: &'static str = "One Light";
+pub const DEFAULT_DARK_THEME: &'static str = "One Dark";
 
 impl Default for ThemeSelection {
     fn default() -> Self {
