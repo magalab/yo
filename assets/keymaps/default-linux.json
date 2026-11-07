@@ -738,6 +738,13 @@
     },
   },
   {
+    "context": "GitPanel && HistoryList && !GitBranchSelector && !GitRepositorySelector",
+    "bindings": {
+      "left": "git_panel::CollapseSelectedEntry",
+      "right": "git_panel::ExpandSelectedEntry",
+    },
+  },
+  {
     "context": "GitPanel && ChangesList && !GitBranchSelector && !GitRepositorySelector",
     "bindings": {
       "left": "git_panel::CollapseSelectedEntry",
