@@ -9629,8 +9629,8 @@ pub(crate) fn language_settings_data() -> Box<[SettingsPageItem]> {
                 files: USER,
             }),
             SettingsPageItem::SettingItem(SettingItem {
-                title: "Open Markdown Files in Preview",
-                description: "Whether to automatically open Markdown files in the preview.",
+                title: n!("Open Markdown Files in Preview"),
+                description: n!("Whether to automatically open Markdown files in the preview."),
                 field: Box::new(SettingField {
                     json_path: Some("markdown_preview.open_markdown_files_in_preview"),
                     pick: |settings_content| {
