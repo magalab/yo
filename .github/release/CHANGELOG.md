@@ -2,11 +2,13 @@
 
 All notable user-facing changes to Yo are listed here, newest first.
 
-## Unreleased
+## 1.1.20 - 2026-11-07
 
 - Improved agent questions and chat input.
 - Fixed jank in Git history.
 - Reduced the macOS download and installation size.
+- Removed Yo-branded theme variants; the defaults now use One Light, One Dark, and Classic icons.
+- Bundled only JetBrains Mono; the UI uses the platform system font by default.
 
 ## 1.1.19 - 2026-11-06
 

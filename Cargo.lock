@@ -15776,7 +15776,7 @@ dependencies = [
 
 [[package]]
 name = "yo"
-version = "1.1.19"
+version = "1.1.20"
 dependencies = [
  "activity_indicator",
  "agent_chat",
