@@ -210,12 +210,15 @@ jobs:
             arch arm: "aarch64", intel: "x86_64"
 
             version "__VERSION__"
-            sha256 arm: "__ARM_SHA256__", intel: "__INTEL_SHA256__"
+            sha256 arm:   "__ARM_SHA256__",
+                   intel: "__INTEL_SHA256__"
 
             url "https://github.com/magalab/yo/releases/download/v#{version}/Yo-#{arch}.dmg"
             name "Yo"
             desc "Native code editor with built-in coding agents"
             homepage "https://github.com/magalab/yo"
+
+            depends_on :macos
 
             app "Yo.app"
             binary "/Applications/Yo.app/Contents/MacOS/cli", target: "yo"
