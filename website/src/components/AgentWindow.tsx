@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMessages } from '../i18n/locale';
 import { mediaFrame } from './Section';
-import { AssistantText, Icon, StepRow, UsageRing, accent, claude, muted, placeholder, stepsSummary, text } from './EditorWindow';
+import { AssistantText, Icon, ModelChip, StepRow, UsageRing, accent, claude, muted, placeholder, stepsSummary, text } from './EditorWindow';
 
 const WIDTH = 760;
 const HEIGHT = 475;
@@ -137,49 +137,37 @@ function Chat({ time, schedule }: { time: number; schedule: Timeline }) {
       </div>
 
       <div className="w-full px-4 pb-2">
-        <div className="flex h-[47px] items-center rounded-[22px] border border-[#2c2f3a] bg-[#2a2d37] pr-2 pl-2 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-4px_rgba(0,0,0,0.1)]">
-          <span className="grid size-7 shrink-0 place-items-center">
-            <Icon name="agent_paperclip" size={18} color={muted} />
-          </span>
-          <span className="min-w-0 flex-1 truncate px-2 text-[14px]" style={{ color: draft ? text : placeholder }}>
+        <div className="flex flex-col rounded-[22px] border border-[#2c2f3a] bg-[#2a2d37] shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-4px_rgba(0,0,0,0.1)]">
+          <div className="truncate px-4 pt-4 pb-2.5 text-[14px] leading-[22.75px]" style={{ color: draft ? text : placeholder }}>
             {draft || t.placeholder}
             {!sent && time >= TYPE_START && (
               <span className="ml-px inline-block h-[17px] w-px translate-y-[3px]" style={{ background: text }} />
             )}
-          </span>
-          <span className="flex h-8 shrink-0 items-center gap-1.5 rounded-[8px] px-1.5 text-[12px] font-medium text-[#f0eef4e6]">
-            <Icon name="agent_claude" size={16} color={claude} />
-            Opus 5.5
-            <span className="text-[#aaa8b7b3]">{t.effort}</span>
-          </span>
-          <span className="flex shrink-0 items-center gap-2 pl-0.5">
-            <span className="grid size-7 place-items-center">
-              <Icon name="agent_microphone" size={18} color={muted} />
+          </div>
+          <div className="flex h-[42px] items-center gap-2 px-3 pt-0.5 pb-2">
+            <span className="flex min-w-0 flex-1 items-center gap-2">
+              <span className="grid size-7 shrink-0 place-items-center">
+                <Icon name="plus" size={18} color={muted} />
+              </span>
+              <ModelChip effort={t.effort} />
             </span>
-            <span className={`grid size-7 place-items-center rounded-full bg-[#f0eef4] ${draft || working ? '' : 'opacity-35'}`}>
-              {working ? (
-                <span className="size-[11px] rounded-[3px] bg-[#181a21]" />
-              ) : (
-                <Icon name="agent_send" size={14} color="#181a21" />
-              )}
+            <span className="flex shrink-0 items-center gap-2">
+              <span className="grid size-7 place-items-center">
+                <Icon name="agent_microphone" size={18} color={muted} />
+              </span>
+              <span className={`grid size-7 place-items-center rounded-full bg-[#f0eef4] ${draft || working ? '' : 'opacity-35'}`}>
+                {working ? (
+                  <span className="size-[11px] rounded-[3px] bg-[#181a21]" />
+                ) : (
+                  <Icon name="agent_send" size={14} color="#181a21" />
+                )}
+              </span>
             </span>
-          </span>
+          </div>
         </div>
-        <div className="flex h-6 items-center pt-2 text-[12px] font-medium text-[#aaa8b799]">
-          <span className="flex items-center gap-1 pl-2.5">
-            <span className="flex h-5 items-center gap-1.5 px-2">
-              <Icon name="agent_folder" size={12} />
-              {t.checkout}
-            </span>
-            <span className="flex h-5 items-center gap-1.5 px-2">
-              <Icon name="agent_git_branch" size={12} />
-              main
-            </span>
-          </span>
-          <span className="ml-auto flex items-center gap-1 pr-2.5 pl-1 font-normal">
-            <UsageRing percent={sent ? 21 : 18} color={accent} />
-            <UsageRing percent={34} color={muted} />
-          </span>
+        <div className="mt-2 flex h-6 items-center justify-end gap-1 pr-2.5 pl-1">
+          <UsageRing percent={sent ? 21 : 18} color={accent} />
+          <UsageRing percent={34} color={muted} />
         </div>
       </div>
     </div>

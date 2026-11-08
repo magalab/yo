@@ -308,6 +308,9 @@ fn main() {
     }
     ztracing::init();
 
+    #[cfg(unix)]
+    util::increase_open_file_limit().log_err();
+
     let version = option_env!("ZED_BUILD_ID");
     let app_commit_sha =
         option_env!("ZED_COMMIT_SHA").map(|commit_sha| AppCommitSha::new(commit_sha.to_string()));
@@ -1605,7 +1608,7 @@ fn prewarm_fonts(cx: &mut App) {
     ] {
         add_variant(&ui_font, weight, gpui::FontStyle::Normal);
     }
-    add_variant(&ui_font, gpui::FontWeight::NORMAL, gpui::FontStyle::Italic);
+    add_variant(&ui_font, ui_font.weight, gpui::FontStyle::Italic);
     add_variant(
         &buffer_font,
         gpui::FontWeight::BOLD,

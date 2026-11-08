@@ -2,6 +2,12 @@
 
 All notable user-facing changes to Yo are listed here, newest first.
 
+## Unreleased
+
+- Integrated selected editor, Git, language, and workspace improvements from Zed 1.20.
+- Added configurable window title formatting and improved Markdown preview settings.
+- Fixed voice dictation UI in Agent Chat and Windows window size persistence.
+
 ## 1.1.20 - 2026-11-07
 
 - Improved agent questions and chat input.
@@ -16,11 +22,16 @@ All notable user-facing changes to Yo are listed here, newest first.
 - Added workspace layout controls, including Activity Bar positioning.
 - Added Homebrew installation for macOS.
 
+| Binary | 1.1.18 (MB) | 1.1.19 (MB) | Change |
+|---|---|---|---|
+| Wu-aarch64.dmg | 86.8 | 72.2 | −17% |
+| Wu-x86_64.dmg | 95.4 | 75.8 | −21% |
+
 ## 1.1.18 - 2026-11-06
 
 - Smaller download and install size on Linux and Windows.
 
-| Binary | Size Before (MB) | Size Now (MB) | Change |
+| Binary | 1.1.17 (MB) | 1.1.18 (MB) | Change |
 |---|---|---|---|
 | wu-linux-aarch64.tar.gz | 86.3 | 54.7 | −37% |
 | wu-linux-x86_64.tar.gz | 89.4 | 57.8 | −35% |
