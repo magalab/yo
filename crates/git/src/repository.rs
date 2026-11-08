@@ -6478,7 +6478,7 @@ mod tests {
                         sha: "eb0cae33272689bd11030822939dd2701c52f81e".into(),
                         subject: "Add feature".into(),
                         commit_timestamp: 1762948725,
-                        author_name: SharedString::new_static("Wu"),
+                        author_name: SharedString::new_static("Yo"),
                         has_parent: true,
                     })
                 },
@@ -6490,7 +6490,7 @@ mod tests {
                         sha: "895951d681e5561478c0acdd6905e8aacdfd2249".into(),
                         subject: "Initial commit".into(),
                         commit_timestamp: 1762948695,
-                        author_name: SharedString::new_static("Wu"),
+                        author_name: SharedString::new_static("Yo"),
                         has_parent: false,
                     })
                 }

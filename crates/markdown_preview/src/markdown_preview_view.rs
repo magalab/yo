@@ -62,6 +62,7 @@ fn reset_persisted_font_size(settings: &mut settings::SettingsContent) {
     if let Some(markdown_preview) = settings.markdown_preview.as_mut() {
         markdown_preview.font_size = None;
     }
+    settings.theme.markdown_preview_font_size = None;
 }
 
 pub struct MarkdownPreviewView {
@@ -1640,6 +1641,14 @@ impl Item for MarkdownPreviewView {
             .unwrap_or_else(|| t!("Markdown Preview"))
     }
 
+    fn tab_tooltip_text(&self, cx: &App) -> Option<SharedString> {
+        self.active_editor
+            .as_ref()?
+            .editor
+            .read(cx)
+            .tab_tooltip_text(cx)
+    }
+
     fn added_to_workspace(
         &mut self,
         workspace: &mut Workspace,
@@ -2211,6 +2220,8 @@ mod tests {
     use util::rel_path::{RelPath, rel_path};
     use util::test::TempTree;
     use workspace::item::{ItemHandle, SerializableItem};
+
+    use workspace::item::{Item, ItemHandle, SerializableItem};
     use workspace::path_link::{OpenTarget, OpenTargetFoundBy};
     use workspace::{
         AppState, ItemId, MultiWorkspace, Pane, SaveIntent, Workspace, WorkspaceId, open_paths,
@@ -2243,6 +2254,31 @@ mod tests {
     }
 
     #[gpui::test]
+    async fn preview_tab_tooltip_matches_source_file_path(cx: &mut TestAppContext) {
+        let (project, _, multi_workspace) = markdown_workspace(
+            cx,
+            json!({
+                "docs": {
+                    "guide.md": "# Guide"
+                }
+            }),
+            false,
+        )
+        .await;
+        let source_item =
+            open_project_file(cx, &project, &multi_workspace, "docs/guide.md", None, true).await;
+        let source_editor = cx.update(|cx| source_item.act_as::<Editor>(cx).unwrap());
+        let preview = open_preview_for_active_editor(cx, &multi_workspace);
+
+        let source_tooltip = source_editor.read_with(cx, |editor, cx| editor.tab_tooltip_text(cx));
+        assert!(source_tooltip.is_some());
+        assert_eq!(
+            preview.read_with(cx, |preview, cx| preview.tab_tooltip_text(cx)),
+            source_tooltip
+        );
+    }
+
+    #[gpui::test]
     fn resetting_persisted_font_size_preserves_unrelated_settings(cx: &mut App) {
         let settings_store = settings::SettingsStore::test(cx);
         cx.set_global(settings_store);
@@ -2265,6 +2301,18 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<serde_json::Value>(&updated).unwrap(),
             json!({"markdown_preview": {"open_markdown_files_in_preview": true}})
+        );
+
+        let updated = cx
+            .global::<settings::SettingsStore>()
+            .new_text_for_update(
+                r#"{"markdown_preview_font_size":18,"buffer_font_size":14}"#.into(),
+                reset_persisted_font_size,
+            )
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&updated).unwrap(),
+            json!({"buffer_font_size": 14})
         );
     }
 

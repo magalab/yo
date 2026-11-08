@@ -4,9 +4,10 @@ All notable user-facing changes to Yo are listed here, newest first.
 
 ## Unreleased
 
-- Integrated selected editor, Git, language, and workspace improvements from Zed 1.20.
-- Added configurable window title formatting and improved Markdown preview settings.
-- Fixed voice dictation UI in Agent Chat and Windows window size persistence.
+- Integrated selected editor, Git, language, workspace, and Markdown preview improvements from Zed 1.20–1.22.
+- Added an Agent Chat side panel with multiple chat tabs.
+- Improved chat rendering, text selection, and background image dismissal.
+- Fixed voice dictation UI and Windows window size persistence.
 
 ## 1.1.20 - 2026-11-07
 
@@ -24,8 +25,8 @@ All notable user-facing changes to Yo are listed here, newest first.
 
 | Binary | 1.1.18 (MB) | 1.1.19 (MB) | Change |
 |---|---|---|---|
-| Wu-aarch64.dmg | 86.8 | 72.2 | −17% |
-| Wu-x86_64.dmg | 95.4 | 75.8 | −21% |
+| Yo-aarch64.dmg | 86.8 | 72.2 | −17% |
+| Yo-x86_64.dmg | 95.4 | 75.8 | −21% |
 
 ## 1.1.18 - 2026-11-06
 
@@ -33,15 +34,15 @@ All notable user-facing changes to Yo are listed here, newest first.
 
 | Binary | 1.1.17 (MB) | 1.1.18 (MB) | Change |
 |---|---|---|---|
-| wu-linux-aarch64.tar.gz | 86.3 | 54.7 | −37% |
-| wu-linux-x86_64.tar.gz | 89.4 | 57.8 | −35% |
-| Wu-x86_64.exe | 53.6 | 39.6 | −26% |
+| yo-linux-aarch64.tar.gz | 86.3 | 54.7 | −37% |
+| yo-linux-x86_64.tar.gz | 89.4 | 57.8 | −35% |
+| Yo-x86_64.exe | 53.6 | 39.6 | −26% |
 
 ## 1.1.17 - 2026-11-06
 
 - Clearer message in Agent Chat when an agent isn't installed.
-- Fixed the Windows installer putting Wu into Zed's folder, and Zed into Wu's, when both are installed.
-- Fixed the Explorer "Open with Wu" menu showing Zed's title when Zed is installed.
+- Fixed the Windows installer putting Yo into Zed's folder, and Zed into Yo's, when both are installed.
+- Fixed the Explorer "Open with Yo" menu showing Zed's title when Zed is installed.
 - New `project_panel.open_mode` setting to open files in the Project panel with a double click. Possible values: `single_click` (default) and `double_click`.
 - Write commit messages with agents from the Git panel.
 - Commits in the Git panel's History now expand to list their changed files. Clicking a file follows `git_panel.entry_primary_click_action`.

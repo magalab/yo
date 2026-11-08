@@ -1428,8 +1428,6 @@ pub enum OpenVisible {
 enum WorkspaceLocation {
     // Valid local paths or SSH project to serialize
     Location(SerializedWorkspaceLocation, PathList),
-    // No valid location found hence clear session id
-    DetachFromSession,
     // No valid location found to serialize
     None,
 }
@@ -1479,6 +1477,7 @@ pub struct Workspace {
     right_dock: Entity<Dock>,
     panes: Vec<Entity<Pane>>,
     panes_by_item: HashMap<EntityId, WeakEntity<Pane>>,
+    item_subscriptions: HashMap<EntityId, Vec<Subscription>>,
     active_pane: Entity<Pane>,
     last_active_center_pane: Option<WeakEntity<Pane>>,
     status_bar: Entity<StatusBar>,
@@ -1911,6 +1910,7 @@ impl Workspace {
             center,
             panes: vec![center_pane.clone()],
             panes_by_item: Default::default(),
+            item_subscriptions: Default::default(),
             active_pane: center_pane.clone(),
             last_active_center_pane: Some(center_pane.downgrade()),
             status_bar,
@@ -5693,6 +5693,7 @@ impl Workspace {
                     && entry.get().entity_id() == pane.entity_id()
                 {
                     entry.remove();
+                    self.item_subscriptions.remove(&item.item_id());
                 }
                 cx.emit(Event::ItemRemoved {
                     item_id: item.item_id(),
@@ -5845,6 +5846,7 @@ impl Workspace {
             self.force_remove_pane(&pane, &focus_on, window, cx);
             for removed_item in pane.read(cx).items() {
                 self.panes_by_item.remove(&removed_item.item_id());
+                self.item_subscriptions.remove(&removed_item.item_id());
             }
 
             cx.notify();
@@ -5926,7 +5928,16 @@ impl Workspace {
             project.set_active_path(active_entry.clone(), cx)
         });
 
-        if focus_changed && let Some(project_path) = &active_entry {
+        // Infer the active repository only from singleton items.
+        // A multibuffer's active path represents the cursor's location within
+        // an aggregate view, so we assume it's not the user's intent to switch
+        // repositories.
+        if focus_changed
+            && let Some(project_path) = &active_entry
+            && self
+                .active_item(cx)
+                .is_some_and(|item| item.buffer_kind(cx) == ItemBufferKind::Singleton)
+        {
             let git_store_entity = self.project.read(cx).git_store().clone();
             git_store_entity.update(cx, |git_store, cx| {
                 git_store.set_active_repo_for_path(project_path, cx);
@@ -6270,6 +6281,11 @@ impl Workspace {
         let database_id = self.database_id;
         let db = WorkspaceDb::global(cx);
         let kvp = db::kvp::KeyValueStore::global(cx);
+        let native_window_state = if database_id.is_some() {
+            window.native_window_state()
+        } else {
+            None
+        };
 
         cx.background_executor().spawn(async move {
             persistence::write_default_window_bounds(&kvp, window_bounds, display_uuid)
@@ -6280,6 +6296,7 @@ impl Workspace {
                     database_id,
                     SerializedWindowBounds(window_bounds),
                     display_uuid,
+                    native_window_state,
                 )
                 .await
                 .log_err();
@@ -6457,6 +6474,9 @@ impl Workspace {
 
                 let center_group = build_serialized_pane_group(&self.center.root, window, cx);
                 let docks = build_serialized_docks(self, window, cx);
+                let default_docks = (paths.is_empty()
+                    && location == SerializedWorkspaceLocation::Local)
+                    .then(|| docks.clone());
                 let window_bounds = Some(SerializedWindowBounds(window.window_bounds()));
                 let identity_paths_hint = self.project_group_key(cx).path_list().clone();
                 let recent_navigation_history = self.persisted_recent_navigation_history.clone();
@@ -6480,31 +6500,14 @@ impl Workspace {
                 };
 
                 let db = WorkspaceDb::global(cx);
-                cx.background_spawn(async move {
-                    db.save_workspace(serialized_workspace).await;
-                })
-            }
-            WorkspaceLocation::DetachFromSession => {
-                let window_bounds = SerializedWindowBounds(window.window_bounds());
-                let display = window.display(cx).and_then(|d| d.uuid().ok());
-                // Save dock state for empty local workspaces
-                let docks = build_serialized_docks(self, window, cx);
-                let db = WorkspaceDb::global(cx);
                 let kvp = db::kvp::KeyValueStore::global(cx);
                 cx.background_spawn(async move {
-                    let open_status_write = db.set_window_open_status(
-                        database_id,
-                        window_bounds,
-                        display.unwrap_or_default(),
-                    );
-                    let session_id_write = db.set_session_id(database_id, None);
-                    let (open_status, session_id) =
-                        futures::join!(open_status_write, session_id_write);
-                    open_status.log_err();
-                    session_id.log_err();
-                    persistence::write_default_dock_state(&kvp, docks)
-                        .await
-                        .log_err();
+                    if let Some(docks) = default_docks {
+                        persistence::write_default_dock_state(&kvp, docks)
+                            .await
+                            .log_err();
+                    }
+                    db.save_workspace(serialized_workspace).await;
                 })
             }
             WorkspaceLocation::None => {
@@ -6520,20 +6523,12 @@ impl Workspace {
         }
     }
 
-    fn has_any_items_open(&self, cx: &App) -> bool {
-        self.panes.iter().any(|pane| pane.read(cx).items_len() > 0)
-    }
-
     fn workspace_location(&self, cx: &App) -> WorkspaceLocation {
         let paths = PathList::new(&self.root_paths(cx));
         if let Some(connection) = self.project.read(cx).remote_connection_options(cx) {
             WorkspaceLocation::Location(SerializedWorkspaceLocation::Remote(connection), paths)
         } else if self.project.read(cx).is_local() {
-            if !paths.is_empty() || self.has_any_items_open(cx) {
-                WorkspaceLocation::Location(SerializedWorkspaceLocation::Local, paths)
-            } else {
-                WorkspaceLocation::DetachFromSession
-            }
+            WorkspaceLocation::Location(SerializedWorkspaceLocation::Local, paths)
         } else {
             WorkspaceLocation::None
         }
@@ -8812,7 +8807,7 @@ pub async fn restore_multiworkspace(
                 None,
                 None,
                 None,
-                OpenMode::Activate,
+                OpenMode::Add,
                 cx,
             )
         })
@@ -8821,7 +8816,15 @@ pub async fn restore_multiworkspace(
     };
 
     let window_handle = match workspace_result {
-        Ok(handle) => handle,
+        Ok(handle) => {
+            restore_native_window_state(handle, active_workspace.workspace_id, cx);
+            handle
+                .update(cx, |_, window, _cx| {
+                    window.activate_window();
+                })
+                .ok();
+            handle
+        }
         Err(err) => {
             log::error!("Failed to restore active workspace: {err:#}");
 
@@ -8913,6 +8916,37 @@ pub async fn apply_restored_multiworkspace_state(
             })
             .ok();
     }
+}
+
+fn restore_native_window_state(
+    window_handle: WindowHandle<MultiWorkspace>,
+    workspace_id: WorkspaceId,
+    cx: &mut AsyncApp,
+) {
+    if window_bounds_env_override().is_some() {
+        return;
+    }
+    let Some((Some(display), Some(native_window_state))) = cx
+        .update(|cx| WorkspaceDb::global(cx))
+        .native_window_state(workspace_id)
+        .log_err()
+        .flatten()
+    else {
+        return;
+    };
+    let display_connected = cx.update(|cx| {
+        cx.displays()
+            .into_iter()
+            .any(|connected_display| connected_display.uuid().ok() == Some(display))
+    });
+    if !display_connected {
+        return;
+    }
+    window_handle
+        .update(cx, |_, window, _cx| {
+            window.restore_native_window_state(&native_window_state);
+        })
+        .log_err();
 }
 
 actions!(
@@ -11128,7 +11162,7 @@ mod tests {
             });
         });
         cx.executor().run_until_parked();
-        assert_eq!(cx.window_title().as_deref(), Some("Wu — root1, root2"));
+        assert_eq!(cx.window_title().as_deref(), Some("Yo — root1, root2"));
 
         let item = cx.new(|cx| {
             TestItem::new(cx).with_project_items(&[TestProjectItem::new_in_worktree(
@@ -11145,7 +11179,7 @@ mod tests {
         let expected_file_path = path!("/root1/src/one.txt");
         assert_eq!(
             cx.window_title().as_deref(),
-            Some(format!("Wu — root1, root2 — one — {expected_file_path}").as_str())
+            Some(format!("Yo — root1, root2 — one — {expected_file_path}").as_str())
         );
     }
 
@@ -11223,6 +11257,38 @@ mod tests {
         fs.set_branch_name(Path::new(path!("/root1/.git")), Some("other"));
         cx.executor().run_until_parked();
         assert_eq!(cx.window_title().as_deref(), Some("root1 — a.txt"));
+    }
+
+    #[gpui::test]
+    async fn test_item_listeners_go_away_when_the_item_leaves_its_pane(cx: &mut TestAppContext) {
+        init_test(cx);
+        let project = Project::test(FakeFs::new(cx.executor()), [], cx).await;
+        let (workspace, cx) =
+            cx.add_window_view(|window, cx| Workspace::test_new(project.clone(), window, cx));
+        let item = cx.new(TestItem::new);
+        let listened = |cx: &mut VisualTestContext| {
+            workspace.read_with(cx, |workspace, _| {
+                workspace
+                    .item_subscriptions
+                    .get(&item.entity_id())
+                    .map(Vec::len)
+            })
+        };
+        let pane = workspace.read_with(cx, |workspace, _| workspace.active_pane().clone());
+
+        for _ in 0..2 {
+            workspace.update_in(cx, |workspace, window, cx| {
+                workspace.add_item_to_active_pane(Box::new(item.clone()), None, true, window, cx)
+            });
+            cx.run_until_parked();
+            assert_eq!(listened(cx), Some(3));
+
+            pane.update_in(cx, |pane, window, cx| {
+                pane.remove_item(item.entity_id(), false, false, window, cx)
+            });
+            cx.run_until_parked();
+            assert_eq!(listened(cx), None);
+        }
     }
 
     #[gpui::test]

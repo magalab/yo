@@ -1065,6 +1065,10 @@ pub struct AgentChatSettingsContent {
     ///
     /// Default: left
     pub dock: Option<DockSide>,
+    /// Which side of the window a chat docks to when you move it out of its tab.
+    ///
+    /// Default: right
+    pub chat_panel_dock: Option<DockSide>,
     /// Which key sends a message from the chat box.
     ///
     /// Default: "enter"
@@ -1127,6 +1131,10 @@ pub struct AgentChatSettingsContent {
     ///
     /// Default: true
     pub confirm_quit_while_working: Option<bool>,
+    /// Keep the computer from going to sleep while an agent is working.
+    ///
+    /// Default: true
+    pub prevent_idle_sleep: Option<bool>,
     /// Let Claude Code chats use your Chrome browser through the Claude in Chrome extension.
     ///
     /// Default: true
@@ -1487,8 +1495,6 @@ impl<T: Clone> merge_from::MergeFrom for ExtendingVec<T> {
     }
 }
 
-pub const REST_OF_FILE_SCAN_EXCLUSIONS: &str = "...";
-
 // A SplicingVec in the settings replaces the value it merges over, except that
 // a `...` entry expands to that previous value.
 //
@@ -1501,6 +1507,10 @@ pub const REST_OF_FILE_SCAN_EXCLUSIONS: &str = "...";
 // repeating it.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct SplicingVec(pub Vec<String>);
+
+impl SplicingVec {
+    pub const REST: &str = "...";
+}
 
 impl From<Vec<String>> for SplicingVec {
     fn from(vec: Vec<String>) -> Self {
@@ -1515,7 +1525,7 @@ impl merge_from::MergeFrom for SplicingVec {
             .0
             .iter()
             .flat_map(|entry| {
-                if entry == REST_OF_FILE_SCAN_EXCLUSIONS {
+                if entry == Self::REST {
                     inherited.clone()
                 } else {
                     vec![entry.clone()]

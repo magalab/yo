@@ -839,7 +839,9 @@ pub struct ProjectPanelSettingsContent {
     ///
     /// Default: right (Agentic layout), left (Classic layout)
     pub dock: Option<DockSide>,
-    /// Delay before showing project panel title tooltips.
+    /// How long to wait before showing the full path tooltip when hovering an entry.
+    ///
+    /// Default: default
     pub title_tooltip_delay: Option<ProjectPanelTitleTooltipDelay>,
     /// Spacing between worktree entries in the project panel.
     ///
@@ -930,7 +932,7 @@ pub struct ProjectPanelSettingsContent {
     pub git_status_indicator: Option<bool>,
 }
 
-/// Controls when project panel title tooltips are shown.
+/// When the project panel shows the full path tooltip on hover.
 #[derive(
     Clone,
     Copy,

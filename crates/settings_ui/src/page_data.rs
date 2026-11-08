@@ -208,7 +208,7 @@ fn general_page(cx: &App) -> SettingsPage {
                 ),
                 field: Box::new(
                     SettingField {
-                        json_path: Some("worktree.private_files"),
+                        json_path: Some("private_files"),
                         pick: |settings_content| {
                             settings_content.project.worktree.private_files.as_ref()
                         },
@@ -1058,11 +1058,12 @@ fn appearance_page() -> SettingsPage {
                     pick: |settings_content| {
                         settings_content
                             .markdown_preview
-                            .as_ref()?
-                            .font_family
                             .as_ref()
+                            .and_then(|preview| preview.font_family.as_ref())
+                            .or(settings_content.theme.markdown_preview_font_family.as_ref())
                     },
                     write: |settings_content, value, _| {
+                        settings_content.theme.markdown_preview_font_family = None;
                         settings_content
                             .markdown_preview
                             .get_or_insert_default()
@@ -1082,11 +1083,15 @@ fn appearance_page() -> SettingsPage {
                     pick: |settings_content| {
                         settings_content
                             .markdown_preview
-                            .as_ref()?
-                            .code_font_family
                             .as_ref()
+                            .and_then(|preview| preview.code_font_family.as_ref())
+                            .or(settings_content
+                                .theme
+                                .markdown_preview_code_font_family
+                                .as_ref())
                     },
                     write: |settings_content, value, _| {
+                        settings_content.theme.markdown_preview_code_font_family = None;
                         settings_content
                             .markdown_preview
                             .get_or_insert_default()
@@ -1108,9 +1113,11 @@ fn appearance_page() -> SettingsPage {
                             .markdown_preview
                             .as_ref()
                             .and_then(|preview| preview.font_size.as_ref())
+                            .or(settings_content.theme.markdown_preview_font_size.as_ref())
                             .or(settings_content.theme.buffer_font_size.as_ref())
                     },
                     write: |settings_content, value, _| {
+                        settings_content.theme.markdown_preview_font_size = None;
                         settings_content
                             .markdown_preview
                             .get_or_insert_default()
@@ -5400,7 +5407,7 @@ fn panels_page() -> SettingsPage {
                 ),
                 field: Box::new(
                     SettingField {
-                        json_path: Some("worktree.hidden_files"),
+                        json_path: Some("hidden_files"),
                         pick: |settings_content| {
                             settings_content.project.worktree.hidden_files.as_ref()
                         },
@@ -7690,7 +7697,7 @@ fn version_control_page() -> SettingsPage {
 }
 
 fn agent_chat_page() -> SettingsPage {
-    fn general_section() -> [SettingsPageItem; 3] {
+    fn general_section() -> [SettingsPageItem; 4] {
         [
             SettingsPageItem::SectionHeader(n!("General")),
             SettingsPageItem::SettingItem(SettingItem {
@@ -7721,10 +7728,25 @@ fn agent_chat_page() -> SettingsPage {
                 metadata: None,
                 files: USER,
             }),
+            SettingsPageItem::SettingItem(SettingItem {
+                title: n!("Chat Panel Dock"),
+                description: n!("Where to dock a chat you move out of its tab."),
+                field: Box::new(SettingField {
+                    json_path: Some("agent_chat.chat_panel_dock"),
+                    pick: |settings_content| {
+                        settings_content.agent_chat.as_ref()?.chat_panel_dock.as_ref()
+                    },
+                    write: |settings_content, value, _| {
+                        settings_content.agent_chat.get_or_insert_default().chat_panel_dock = value;
+                    },
+                }),
+                metadata: None,
+                files: USER,
+            }),
         ]
     }
 
-    fn chat_section() -> [SettingsPageItem; 7] {
+    fn chat_section() -> [SettingsPageItem; 8] {
         [
             SettingsPageItem::SectionHeader(n!("Chat")),
             SettingsPageItem::SettingItem(SettingItem {
@@ -7828,6 +7850,28 @@ fn agent_chat_page() -> SettingsPage {
                             .agent_chat
                             .get_or_insert_default()
                             .confirm_quit_while_working = value;
+                    },
+                }),
+                metadata: None,
+                files: USER,
+            }),
+            SettingsPageItem::SettingItem(SettingItem {
+                title: n!("Keep Computer Awake"),
+                description: n!("Keep the computer from going to sleep while an agent is working."),
+                field: Box::new(SettingField {
+                    json_path: Some("agent_chat.prevent_idle_sleep"),
+                    pick: |settings_content| {
+                        settings_content
+                            .agent_chat
+                            .as_ref()?
+                            .prevent_idle_sleep
+                            .as_ref()
+                    },
+                    write: |settings_content, value, _| {
+                        settings_content
+                            .agent_chat
+                            .get_or_insert_default()
+                            .prevent_idle_sleep = value;
                     },
                 }),
                 metadata: None,
