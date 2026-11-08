@@ -4,10 +4,12 @@ All notable user-facing changes to Yo are listed here, newest first.
 
 ## Unreleased
 
-- Integrated selected editor, Git, language, workspace, and Markdown preview improvements from Zed 1.20–1.22.
+## 1.2.0 - 2026-11-09
+
 - Added an Agent Chat side panel with multiple chat tabs.
-- Improved chat rendering, text selection, and background image dismissal.
-- Fixed voice dictation UI and Windows window size persistence.
+- Added a language server command selector.
+- Improved editor, Git, project panel, Markdown, and remote workspace behavior.
+- Improved chat rendering, table text selection, and image viewing; fixed voice dictation and Windows window size persistence.
 
 ## 1.1.20 - 2026-11-07
 
