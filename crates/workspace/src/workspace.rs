@@ -55,13 +55,13 @@ use futures::{
     future::Shared,
 };
 use gpui::{
-    Action, AnyView, AnyWeakView, App, AppContext, AsyncApp, AsyncWindowContext, Axis, Bounds,
-    ClipboardItem, Context, CursorStyle, Decorations, DragMoveEvent, Entity, EntityId,
-    EventEmitter, FocusHandle, Focusable, Global, HitboxBehavior, Hsla, KeyContext, Keystroke,
-    ManagedView, MouseButton, PathPromptOptions, Point, PromptButton, PromptLevel, Render,
-    ResizeEdge, Size, Stateful, Subscription, SystemWindowTabController, Task, TaskExt, Tiling,
-    WeakEntity, WindowBounds, WindowHandle, WindowId, WindowOptions, actions, canvas, point,
-    relative, size, transparent_black,
+    Action, Animation, AnimationExt, AnyElement, AnyView, AnyWeakView, App, AppContext, AsyncApp,
+    AsyncWindowContext, Axis, Bounds, ClipboardItem, Context, CursorStyle, Decorations,
+    DragMoveEvent, Entity, EntityId, EventEmitter, FocusHandle, Focusable, Global,
+    HitboxBehavior, Hsla, KeyContext, Keystroke, ManagedView, MouseButton, PathPromptOptions,
+    Point, PromptButton, PromptLevel, Render, ResizeEdge, Size, Stateful, Subscription,
+    SystemWindowTabController, Task, TaskExt, Tiling, WeakEntity, WindowBounds, WindowHandle,
+    WindowId, WindowOptions, actions, canvas, point, relative, size, transparent_black,
 };
 pub use history_manager::*;
 use i18n::t;
@@ -1473,8 +1473,12 @@ pub struct Workspace {
     maximized_pane: Option<WeakEntity<Pane>>,
     center: PaneGroup,
     left_dock: Entity<Dock>,
+    left_dock_is_closing: bool,
+    left_dock_close_task: Option<Task<()>>,
     bottom_dock: Entity<Dock>,
     right_dock: Entity<Dock>,
+    right_dock_is_closing: bool,
+    right_dock_close_task: Option<Task<()>>,
     panes: Vec<Entity<Pane>>,
     panes_by_item: HashMap<EntityId, WeakEntity<Pane>>,
     item_subscriptions: HashMap<EntityId, Vec<Subscription>>,
@@ -1923,8 +1927,12 @@ impl Workspace {
             notifications: Notifications::default(),
             suppressed_notifications: HashSet::default(),
             left_dock,
+            left_dock_is_closing: false,
+            left_dock_close_task: None,
             bottom_dock,
             right_dock,
+            right_dock_is_closing: false,
+            right_dock_close_task: None,
             _panels_task: None,
             project: project.clone(),
             dispatching_keystrokes: Default::default(),
@@ -4298,15 +4306,49 @@ impl Workspace {
         let mut focus_center = false;
         let mut reveal_dock = false;
 
+        self.cancel_top_dock_close(dock_side, cx);
         let other_is_zoomed = self.zoomed.is_some() && self.zoomed_position != Some(dock_side);
-        let was_visible = self.is_dock_at_position_open(dock_side, cx) && !other_is_zoomed;
+        let dock = self.dock_at_position(dock_side).clone();
+        let (current_size, dock_is_open) = {
+            let dock_state = dock.read(cx);
+            let current_size = dock_state.active_panel().map(|panel| {
+                dock_state
+                    .stored_panel_size(panel.as_ref(), window, cx)
+                    .unwrap_or_else(|| panel.default_size(window, cx))
+            });
+            (current_size, dock_state.is_open())
+        };
+        let too_narrow = current_size.is_some_and(|size| {
+            self.should_hide_top_activity_dock(dock_side, size, window, cx)
+        });
+        let activity_bar_min_size = too_narrow.then(|| {
+            activity_bar::horizontal_min_width(
+                self.activity_bar.read(cx).entries(window, cx).len(),
+                window,
+                cx,
+            )
+        });
+        let was_visible = dock_is_open && !other_is_zoomed && !too_narrow;
 
         if was_visible {
             self.save_open_dock_positions(cx);
         }
 
-        let dock = self.dock_at_position(dock_side);
         dock.update(cx, |dock, cx| {
+            if let Some(activity_bar_min_size) = activity_bar_min_size {
+                if let Some(panel) = dock.active_panel()
+                    && let Some(panel_min_size) = panel.min_size(window, cx)
+                {
+                    dock.resize_panel_sizes(
+                        Some(activity_bar_min_size.max(panel_min_size)),
+                        None,
+                        window,
+                        cx,
+                    );
+                } else {
+                    dock.resize_panel_sizes(Some(activity_bar_min_size), None, window, cx);
+                }
+            }
             dock.set_open(!was_visible, window, cx);
 
             if dock.active_panel().is_none() {
@@ -7378,7 +7420,7 @@ impl Workspace {
         dock: &Entity<Dock>,
         window: &mut Window,
         cx: &mut App,
-    ) -> Option<Stateful<Div>> {
+    ) -> Option<AnyElement> {
         if self.zoomed_position == Some(position) {
             return None;
         }
@@ -7396,16 +7438,50 @@ impl Workspace {
             DockPosition::Bottom => ("bottom-dock", t!("Bottom dock")),
         };
         let dock_is_open = dock.read(cx).is_open();
+        let dock_is_closing = match position {
+            DockPosition::Left => self.left_dock_is_closing,
+            DockPosition::Right => self.right_dock_is_closing,
+            DockPosition::Bottom => false,
+        };
         let has_top_activity_bar = matches!(
             (self.activity_bar_side(cx), position),
             (Some(settings::ActivityBarPosition::TopLeft), DockPosition::Left)
                 | (Some(settings::ActivityBarPosition::TopRight), DockPosition::Right)
         );
+        let top_activity_bar_required_width = activity_bar::horizontal_min_width(
+            self.activity_bar.read(cx).entries(window, cx).len(),
+            window,
+            cx,
+        );
+        let dock_panel_layout = if has_top_activity_bar && dock_is_open {
+            let dock_state = dock.read(cx);
+            dock_state
+                .visible_panel()
+                .or_else(|| dock_state.active_panel())
+                .map(|panel| {
+                    (
+                        dock_state
+                            .stored_panel_size(panel.as_ref(), window, cx)
+                            .unwrap_or_else(|| panel.default_size(window, cx)),
+                        panel.has_flexible_size(window, cx),
+                    )
+                })
+        } else {
+            None
+        };
+        let dock_panel_width = dock_panel_layout.map(|(width, _)| width);
+        let dock_panel_is_flexible = dock_panel_layout.is_some_and(|(_, flexible)| flexible);
+        let show_top_activity_bar = has_top_activity_bar
+            && dock_is_open
+            && (dock_is_closing
+                || dock_panel_width.is_none_or(|width| width >= top_activity_bar_required_width));
+        let hide_dock_for_top_activity_bar = !dock_is_closing
+            && dock_panel_width.is_some_and(|width| width < top_activity_bar_required_width);
         let a11y_active = window.is_a11y_active();
 
         let mut container = div()
             .id(dock_element_id)
-            .when(dock_is_open, |this| {
+            .when(dock_is_open && !hide_dock_for_top_activity_bar, |this| {
                 this.role(gpui::Role::Complementary)
                     .aria_label(dock_label)
                     .when(a11y_active, |this| {
@@ -7416,10 +7492,10 @@ impl Workspace {
             .overflow_hidden()
             .flex_none()
             .when_else(
-                has_top_activity_bar,
+                show_top_activity_bar,
                 |this| {
                     this.flex_col()
-                        .child(self.activity_bar.clone())
+                        .when(dock_is_open, |this| this.child(self.activity_bar.clone()))
                         .child(div().flex_1().min_h_0().w_full().child(dock.clone()))
                 },
                 |this| this.child(dock.clone()),
@@ -7431,7 +7507,14 @@ impl Workspace {
         let dock = dock.read(cx);
         if let Some(panel) = dock.visible_panel() {
             let size_state = dock.stored_panel_size_state(panel.as_ref());
-            let min_size = panel.min_size(window, cx);
+            let mut min_size = panel.min_size(window, cx);
+            if show_top_activity_bar {
+                min_size = Some(
+                    min_size
+                        .map(|min_size| min_size.max(top_activity_bar_required_width))
+                        .unwrap_or(top_activity_bar_required_width),
+                );
+            }
             if position.axis() == Axis::Horizontal {
                 let use_flexible = panel.has_flexible_size(window, cx);
                 let flex_grow = if use_flexible {
@@ -7468,17 +7551,44 @@ impl Workspace {
                     .unwrap_or_else(|| panel.default_size(window, cx));
                 container = container.h(size);
             }
-        } else if has_top_activity_bar
-            && position.axis() == Axis::Horizontal
-            && let Some(panel) = dock.active_panel()
-        {
-            let size = dock
-                .stored_panel_size(panel.as_ref(), window, cx)
-                .unwrap_or_else(|| panel.default_size(window, cx));
-            container = container.w(size);
+        } else if has_top_activity_bar {
+            if !dock_is_open {
+                container = container.w(px(0.));
+            } else if position.axis() == Axis::Horizontal
+                && let Some(panel) = dock.active_panel()
+            {
+                let size = dock
+                    .stored_panel_size(panel.as_ref(), window, cx)
+                    .unwrap_or_else(|| panel.default_size(window, cx));
+                container = container.w(size);
+            }
+        }
+        if hide_dock_for_top_activity_bar {
+            container = container.w(px(0.));
         }
 
-        Some(container)
+        if dock_is_closing {
+            let width = dock_panel_width.unwrap_or(top_activity_bar_required_width);
+            Some(
+                container
+                    .with_animation(
+                        (dock_element_id, 0usize),
+                        Animation::new(Duration::from_millis(160))
+                            .with_easing(|delta| delta * delta * (3. - 2. * delta)),
+                        move |this, delta| {
+                            let this = this.opacity(1. - delta);
+                            if dock_panel_is_flexible {
+                                this
+                            } else {
+                                this.w(width * (1. - delta))
+                            }
+                        },
+                    )
+                    .into_any_element(),
+            )
+        } else {
+            Some(container.into_any_element())
+        }
     }
 
     /// Returns the currently-visible major window regions ("parts"), in a stable
@@ -7486,7 +7596,7 @@ impl Workspace {
     /// status bar. Closed docks are skipped. Used by
     /// [`FocusNextPart`]/[`FocusPreviousPart`] so keyboard and screen-reader
     /// users can move between regions without a mouse.
-    fn focusable_parts(&self, cx: &App) -> Vec<FocusablePart> {
+    fn focusable_parts(&self, window: &Window, cx: &App) -> Vec<FocusablePart> {
         // The interactive focus target inside an open dock: the active panel, or
         // the dock itself as a fallback. This is what region navigation focuses
         // when no screen reader is active (preserving the previous behavior).
@@ -7497,9 +7607,23 @@ impl Workspace {
                 .unwrap_or_else(|| dock.focus_handle(cx))
         }
 
-        let dock_part = |dock: &Entity<Dock>, wrapper: &FocusHandle| {
-            dock.read(cx)
-                .is_open()
+        let dock_part = |dock: &Entity<Dock>, wrapper: &FocusHandle, position: DockPosition| {
+            let (is_open, panel_width) = {
+                let dock = dock.read(cx);
+                let panel_width = dock
+                    .visible_panel()
+                    .or_else(|| dock.active_panel())
+                    .map(|panel| {
+                        dock.stored_panel_size(panel.as_ref(), window, cx)
+                            .unwrap_or_else(|| panel.default_size(window, cx))
+                    });
+                (dock.is_open(), panel_width)
+            };
+            let is_visible = is_open
+                && panel_width.is_none_or(|width| {
+                    !self.should_hide_top_activity_dock(position, width, window, cx)
+                });
+            is_visible
                 .then(|| FocusablePart::landmark(wrapper.clone(), dock_content_handle(dock, cx)))
         };
 
@@ -7512,6 +7636,7 @@ impl Workspace {
         parts.extend(dock_part(
             &self.left_dock,
             &self.region_focus_handles.left_dock,
+            DockPosition::Left,
         ));
 
         let center_pane = self
@@ -7527,10 +7652,12 @@ impl Workspace {
         parts.extend(dock_part(
             &self.right_dock,
             &self.region_focus_handles.right_dock,
+            DockPosition::Right,
         ));
         parts.extend(dock_part(
             &self.bottom_dock,
             &self.region_focus_handles.bottom_dock,
+            DockPosition::Bottom,
         ));
         // The status bar is an ARIA toolbar, so region navigation lands on its
         // first control rather than the toolbar container.
@@ -7543,7 +7670,7 @@ impl Workspace {
     /// Moves focus to the next (or previous) visible window region. See
     /// [`FocusNextPart`].
     fn move_part_focus(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
-        let parts = self.focusable_parts(cx);
+        let parts = self.focusable_parts(window, cx);
         if parts.is_empty() {
             return;
         }
@@ -7757,7 +7884,96 @@ impl Workspace {
             - pointer_x
     }
 
-    fn resize_left_dock(&mut self, new_size: Pixels, window: &mut Window, cx: &mut App) {
+    fn should_hide_top_activity_dock(
+        &self,
+        dock_position: DockPosition,
+        size: Pixels,
+        window: &Window,
+        cx: &App,
+    ) -> bool {
+        let activity_bar_position = match dock_position {
+            DockPosition::Left => settings::ActivityBarPosition::TopLeft,
+            DockPosition::Right => settings::ActivityBarPosition::TopRight,
+            DockPosition::Bottom => return false,
+        };
+        self.activity_bar_side(cx) == Some(activity_bar_position)
+            && size
+                < activity_bar::horizontal_min_width(
+                    self.activity_bar.read(cx).entries(window, cx).len(),
+                    window,
+                    cx,
+                )
+    }
+
+    fn schedule_top_dock_close(
+        &mut self,
+        dock_position: DockPosition,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if cx.reduce_motion() {
+            let dock = self.dock_at_position(dock_position).clone();
+            dock.update(cx, |dock, cx| dock.set_open(false, window, cx));
+            return;
+        }
+
+        let close_task = cx.spawn_in(window, async move |workspace, cx| {
+            cx.background_executor()
+                .timer(Duration::from_millis(160))
+                .await;
+            workspace
+                .update_in(cx, |workspace, window, cx| {
+                    match dock_position {
+                        DockPosition::Left if workspace.left_dock_is_closing => {
+                            workspace.left_dock_is_closing = false;
+                            workspace.left_dock.update(cx, |dock, cx| {
+                                dock.set_open(false, window, cx)
+                            });
+                        }
+                        DockPosition::Right if workspace.right_dock_is_closing => {
+                            workspace.right_dock_is_closing = false;
+                            workspace.right_dock.update(cx, |dock, cx| {
+                                dock.set_open(false, window, cx)
+                            });
+                        }
+                        _ => {}
+                    }
+                    cx.notify();
+                })
+                .log_err();
+        });
+
+        match dock_position {
+            DockPosition::Left => {
+                self.left_dock_is_closing = true;
+                self.left_dock_close_task = Some(close_task);
+            }
+            DockPosition::Right => {
+                self.right_dock_is_closing = true;
+                self.right_dock_close_task = Some(close_task);
+            }
+            DockPosition::Bottom => return,
+        }
+        cx.notify();
+    }
+
+    fn cancel_top_dock_close(&mut self, dock_position: DockPosition, cx: &mut Context<Self>) {
+        match dock_position {
+            DockPosition::Left if self.left_dock_is_closing => {
+                self.left_dock_close_task.take();
+                self.left_dock_is_closing = false;
+                cx.notify();
+            }
+            DockPosition::Right if self.right_dock_is_closing => {
+                self.right_dock_close_task.take();
+                self.right_dock_is_closing = false;
+                cx.notify();
+            }
+            _ => {}
+        }
+    }
+
+    fn resize_left_dock(&mut self, new_size: Pixels, window: &mut Window, cx: &mut Context<Self>) {
         let workspace_width = self.bounds.size.width;
         let mut size = new_size.min(workspace_width - RESIZE_HANDLE_SIZE);
 
@@ -7770,13 +7986,26 @@ impl Workspace {
             }
         });
 
+        if self.should_hide_top_activity_dock(DockPosition::Left, size, window, cx) {
+            if !self.left_dock_is_closing {
+                self.schedule_top_dock_close(DockPosition::Left, window, cx);
+            }
+            return;
+        }
+        self.cancel_top_dock_close(DockPosition::Left, cx);
+
         let flex_grow = self.dock_flex_for_size(DockPosition::Left, size, window, cx);
         self.left_dock.update(cx, |left_dock, cx| {
             left_dock.resize_panel_sizes(Some(size), flex_grow, window, cx);
         });
     }
 
-    fn resize_right_dock(&mut self, new_size: Pixels, window: &mut Window, cx: &mut App) {
+    fn resize_right_dock(
+        &mut self,
+        new_size: Pixels,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let workspace_width = self.bounds.size.width;
         let mut size = new_size.min(workspace_width - RESIZE_HANDLE_SIZE);
         self.left_dock.read_with(cx, |left_dock, cx| {
@@ -7787,6 +8016,13 @@ impl Workspace {
                 size = workspace_width - left_dock_size
             }
         });
+        if self.should_hide_top_activity_dock(DockPosition::Right, size, window, cx) {
+            if !self.right_dock_is_closing {
+                self.schedule_top_dock_close(DockPosition::Right, window, cx);
+            }
+            return;
+        }
+        self.cancel_top_dock_close(DockPosition::Right, cx);
         let flex_grow = self.dock_flex_for_size(DockPosition::Right, size, window, cx);
         self.right_dock.update(cx, |right_dock, cx| {
             right_dock.resize_panel_sizes(Some(size), flex_grow, window, cx);

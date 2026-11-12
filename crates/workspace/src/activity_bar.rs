@@ -48,6 +48,10 @@ pub(crate) fn bar_width(window: &Window, cx: &App) -> Pixels {
     icon_size(window, cx) + px(24.)
 }
 
+pub(crate) fn horizontal_min_width(entry_count: usize, window: &Window, cx: &App) -> Pixels {
+    (bar_width(window, cx) + px(8.)) * entry_count
+}
+
 /// Entries are shown in this order by `Panel::panel_key()` until the user drags
 /// them around. Panels not listed come after, in dock order (left dock first).
 const DEFAULT_ORDER: [&str; 6] = [
@@ -387,45 +391,51 @@ impl ActivityBar {
                     cx.listener(move |this, dragged: &DraggedActivityBarEntry, window, cx| {
                         this.move_entry(dragged.key, key, window, cx);
                     });
-                right_click_menu(format!("activity-bar-{key}"))
-                    .menu(move |window, cx| {
-                        panel_button_context_menu(&panel, &dock, &workspace, window, cx)
-                    })
-                    .anchor(menu_anchor)
-                    .attach(menu_attach)
-                    .trigger(move |is_menu_open, _window, _cx| {
-                        div()
-                            .id(SharedString::from(format!("activity-bar-entry-{key}")))
-                            .relative()
-                            .rounded_md()
-                            .on_drag(DraggedActivityBarEntry { key, icon }, |entry, _, _, cx| {
-                                cx.new(|_| entry.clone())
+                div()
+                    .flex_none()
+                    .child(
+                        right_click_menu(format!("activity-bar-{key}"))
+                            .menu(move |window, cx| {
+                                panel_button_context_menu(&panel, &dock, &workspace, window, cx)
                             })
-                            .drag_over::<DraggedActivityBarEntry>(move |style, dragged, _, cx| {
-                                let colors = cx.theme().colors();
-                                let style = style
-                                    .bg(colors.drop_target_background)
-                                    .border_color(colors.drop_target_border);
-                                if drop_indicator_above(dragged, &order) {
-                                    if horizontal {
-                                        style.border_l_2()
-                                    } else {
-                                        style.border_t_2()
-                                    }
-                                } else {
-                                    if horizontal {
-                                        style.border_r_2()
-                                    } else {
-                                        style.border_b_2()
-                                    }
-                                }
-                            })
-                            .on_drop(on_drop)
-                            .child(button(is_menu_open))
-                            .when_some(badge_count, |this, count| {
-                                this.child(CountBadge::new(count))
-                            })
-                    })
+                            .anchor(menu_anchor)
+                            .attach(menu_attach)
+                            .trigger(move |is_menu_open, _window, _cx| {
+                                div()
+                                    .id(SharedString::from(format!("activity-bar-entry-{key}")))
+                                    .flex_none()
+                                    .relative()
+                                    .rounded_md()
+                                    .on_drag(
+                                        DraggedActivityBarEntry { key, icon },
+                                        |entry, _, _, cx| cx.new(|_| entry.clone()),
+                                    )
+                                    .drag_over::<DraggedActivityBarEntry>(
+                                        move |style, dragged, _, cx| {
+                                            let colors = cx.theme().colors();
+                                            let style = style
+                                                .bg(colors.drop_target_background)
+                                                .border_color(colors.drop_target_border);
+                                            if drop_indicator_above(dragged, &order) {
+                                                if horizontal {
+                                                    style.border_l_2()
+                                                } else {
+                                                    style.border_t_2()
+                                                }
+                                            } else if horizontal {
+                                                style.border_r_2()
+                                            } else {
+                                                style.border_b_2()
+                                            }
+                                        },
+                                    )
+                                    .on_drop(on_drop)
+                                    .child(button(is_menu_open))
+                                    .when_some(badge_count, |this, count| {
+                                        this.child(CountBadge::new(count))
+                                    })
+                            }),
+                    )
                     .into_any_element()
             }
         }
