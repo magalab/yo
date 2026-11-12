@@ -4,12 +4,16 @@ All notable user-facing changes to Yo are listed here, newest first.
 
 ## Unreleased
 
+## 1.2.1 - 2026-11-12
+
 - Fixed the Git panel staying stale after running Git commands outside Yo.
 - Fixed new files ignoring the `line_ending` setting.
 - Fixed a console window opening on Windows when an agent starts.
 - Added support for OpenCode question pickers.
 - Fixed a startup crash on ARM Linux.
 - Kept agent models in the order provided by each agent.
+
+## 1.2.0 - 2026-11-09
 
 - Added an Agent Chat side panel with multiple chat tabs.
 - Added a language server command selector.
