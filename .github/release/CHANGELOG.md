@@ -6,6 +6,7 @@ All notable user-facing changes to Yo are listed here, newest first.
 
 - Allow project tabs in the title bar to be reordered by dragging.
 - Show a Repositories list in the Git panel when a project has more than one repository.
+- Fixed the Git panel's History tab opening at the oldest commit.
 
 ## 1.2.1 - 2026-11-12
 
