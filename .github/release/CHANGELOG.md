@@ -4,6 +4,8 @@ All notable user-facing changes to Yo are listed here, newest first.
 
 ## Unreleased
 
+- Allow project tabs in the title bar to be reordered by dragging.
+
 ## 1.2.1 - 2026-11-12
 
 - Fixed the Git panel staying stale after running Git commands outside Yo.
