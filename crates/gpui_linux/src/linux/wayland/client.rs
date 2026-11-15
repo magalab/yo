@@ -34,7 +34,7 @@ use wayland_client::{
     Connection, Dispatch, Proxy, QueueHandle, delegate_noop,
     protocol::{
         wl_buffer, wl_compositor, wl_keyboard, wl_pointer, wl_registry, wl_seat, wl_shm,
-        wl_shm_pool, wl_surface,
+        wl_shm_pool, wl_surface, wl_touch,
     },
 };
 use wayland_protocols::wp::pointer_gestures::zv1::client::{
@@ -96,12 +96,13 @@ use crate::linux::{
     xdg_desktop_portal::{Event as XDPEvent, XDPEventSource},
 };
 use gpui::{
-    AnyWindowHandle, Bounds, Capslock, CursorStyle, DevicePixels, DisplayId, ExternalDragPayload,
-    FileDragPaths, FileDropEvent, ForegroundExecutor, KeyDownEvent, KeyUpEvent, Keystroke,
-    Modifiers, ModifiersChangedEvent, MouseButton, MouseDownEvent, MouseExitEvent, MouseMoveEvent,
-    MouseUpEvent, NavigationDirection, Pixels, PlatformDisplay, PlatformInput,
-    PlatformKeyboardLayout, PlatformWindow, Point, ScrollDelta, ScrollWheelEvent, SharedString,
-    Size, TouchPhase, WindowButtonLayout, WindowKind, WindowParams, point, profiler, px, size,
+    ActiveTouches, AnyWindowHandle, Bounds, Capslock, CursorStyle, DevicePixels, DisplayId,
+    ExternalDragPayload, FileDragPaths, FileDropEvent, ForegroundExecutor, KeyDownEvent,
+    KeyUpEvent, Keystroke, Modifiers, ModifiersChangedEvent, MouseButton, MouseDownEvent,
+    MouseExitEvent, MouseMoveEvent, MouseUpEvent, NavigationDirection, Pixels, PlatformDisplay,
+    PlatformInput, PlatformKeyboardLayout, PlatformWindow, Point, ScrollDelta, ScrollWheelEvent,
+    SharedString, Size, TouchPhase, WindowButtonLayout, WindowKind, WindowParams, point, profiler,
+    px, size,
 };
 use gpui_wgpu::{CompositorGpuHint, GpuContext};
 use wayland_protocols::wp::linux_dmabuf::zv1::client::{
@@ -319,6 +320,8 @@ pub(crate) struct WaylandClientState {
     wl_pointer: Option<wl_pointer::WlPointer>,
     pinch_gesture: Option<zwp_pointer_gesture_pinch_v1::ZwpPointerGesturePinchV1>,
     pinch_scale: f32,
+    wl_touch: Option<wl_touch::WlTouch>,
+    touches: ActiveTouches<i32, WaylandWindowStatePtr>,
     wl_keyboard: Option<wl_keyboard::WlKeyboard>,
     cursor_shape_device: Option<wp_cursor_shape_device_v1::WpCursorShapeDeviceV1>,
     data_device: Option<wl_data_device::WlDataDevice>,
@@ -992,6 +995,8 @@ impl WaylandClient {
             wl_keyboard: None,
             pinch_gesture: None,
             pinch_scale: 1.0,
+            wl_touch: None,
+            touches: ActiveTouches::default(),
             cursor_shape_device: None,
             data_device,
             primary_selection,
@@ -1815,6 +1820,18 @@ impl Dispatch<wl_seat::WlSeat, ()> for WaylandClientStatePtr {
 
                 state.wl_pointer = Some(pointer);
             }
+            let touch = capabilities
+                .contains(wl_seat::Capability::Touch)
+                .then(|| seat.get_touch(qh, ()));
+            let Some(old_touch) = std::mem::replace(&mut state.wl_touch, touch) else {
+                return;
+            };
+            old_touch.release();
+            let cancelled = state.touches.cancel_all();
+            drop(state);
+            for (window, event) in cancelled {
+                window.handle_input(PlatformInput::Touch(event));
+            }
         }
     }
 }
@@ -2496,6 +2513,50 @@ impl Dispatch<wl_pointer::WlPointer, ()> for WaylandClientStatePtr {
                 }
             }
             _ => {}
+        }
+    }
+}
+
+impl Dispatch<wl_touch::WlTouch, ()> for WaylandClientStatePtr {
+    fn event(
+        this: &mut Self,
+        _: &wl_touch::WlTouch,
+        event: wl_touch::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+        let client = this.get_client();
+        let mut state = client.borrow_mut();
+        let events = match event {
+            wl_touch::Event::Down {
+                serial,
+                surface,
+                id,
+                x,
+                y,
+                ..
+            } => {
+                state.serial_tracker.update(SerialKind::MousePress, serial);
+                let Some(window) = get_window(&mut state, &surface.id()) else {
+                    return;
+                };
+                state
+                    .touches
+                    .start(id, window, point(px(x as f32), px(y as f32)))
+            }
+            wl_touch::Event::Motion { id, x, y, .. } => state
+                .touches
+                .moved(&id, point(px(x as f32), px(y as f32)))
+                .into_iter()
+                .collect(),
+            wl_touch::Event::Up { id, .. } => state.touches.ended(&id).into_iter().collect(),
+            wl_touch::Event::Cancel => state.touches.cancel_all(),
+            _ => return,
+        };
+        drop(state);
+        for (window, event) in events {
+            window.handle_input(PlatformInput::Touch(event));
         }
     }
 }

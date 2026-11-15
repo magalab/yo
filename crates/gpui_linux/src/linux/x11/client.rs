@@ -13,7 +13,7 @@ use log::Level;
 use smallvec::SmallVec;
 use std::{
     cell::RefCell,
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashSet},
     ops::Deref,
     path::PathBuf,
     rc::{Rc, Weak},
@@ -60,10 +60,10 @@ use crate::linux::{
 use crate::linux::{LinuxCommon, LinuxKeyboardLayout, X11Window, modifiers_from_xinput_info};
 
 use gpui::{
-    AnyWindowHandle, Bounds, ClipboardItem, CursorStyle, DisplayId, FileDropEvent, Keystroke,
-    Modifiers, ModifiersChangedEvent, MouseButton, Pixels, PlatformDisplay, PlatformInput,
-    PlatformKeyboardLayout, PlatformWindow, Point, RequestFrameOptions, ScrollDelta, Size,
-    TouchPhase, WindowButtonLayout, WindowParams, point, px,
+    ActiveTouches, AnyWindowHandle, Bounds, ClipboardItem, CursorStyle, DisplayId, FileDropEvent,
+    Keystroke, Modifiers, ModifiersChangedEvent, MouseButton, Pixels, PlatformDisplay,
+    PlatformInput, PlatformKeyboardLayout, PlatformWindow, Point, RequestFrameOptions, ScrollDelta,
+    Size, TouchPhase, WindowButtonLayout, WindowParams, point, px,
 };
 use gpui_wgpu::{CompositorGpuHint, GpuContext};
 
@@ -76,6 +76,12 @@ pub(crate) const XINPUT_ALL_DEVICES: xinput::DeviceId = 0;
 /// In XInput 2's interface, these are referred to as "master devices", but that
 /// terminology is both archaic and unclear.
 pub(crate) const XINPUT_ALL_DEVICE_GROUPS: xinput::DeviceId = 1;
+
+#[derive(Clone, Copy)]
+pub(crate) struct XinputSupport {
+    pub(crate) touch: bool,
+    pub(crate) gestures: bool,
+}
 
 const GPUI_X11_SCALE_FACTOR_ENV: &str = "GPUI_X11_SCALE_FACTOR";
 
@@ -216,7 +222,9 @@ pub struct X11ClientState {
 
     pointer_device_states: BTreeMap<xinput::DeviceId, PointerDeviceState>,
 
-    pub(crate) supports_xinput_gestures: bool,
+    pub(crate) xinput_support: XinputSupport,
+    touches: ActiveTouches<(xinput::DeviceId, u32), X11WindowStatePtr>,
+    touchpads: BTreeSet<xinput::DeviceId>,
 
     pub(crate) common: LinuxCommon,
     pub(crate) clipboard: Clipboard,
@@ -255,6 +263,9 @@ impl X11ClientStatePtr {
             state.cursor_hidden_window = None;
         }
         state.cursor_styles.remove(&x_window);
+        state
+            .touches
+            .forget_window(|window| window.x_window == x_window);
     }
 
     pub fn update_ime_position(&self, bounds: Bounds<Pixels>) {
@@ -366,17 +377,26 @@ impl X11Client {
             xinput_version.major_version >= 2,
             "XInput version >= 2 required."
         );
-        let supports_xinput_gestures = xinput_version.major_version > 2
-            || (xinput_version.major_version == 2 && xinput_version.minor_version >= 4);
+        let supports = |minor_version| {
+            xinput_version.major_version > 2
+                || (xinput_version.major_version == 2
+                    && xinput_version.minor_version >= minor_version)
+        };
+        let xinput_support = XinputSupport {
+            touch: supports(2),
+            gestures: supports(4),
+        };
         log::info!(
-            "XInput version: {}.{}, gesture support: {}",
+            "XInput version: {}.{}, touch support: {}, gesture support: {}",
             xinput_version.major_version,
             xinput_version.minor_version,
-            supports_xinput_gestures,
+            xinput_support.touch,
+            xinput_support.gestures,
         );
 
         let pointer_device_states =
             current_pointer_device_states(&xcb_connection, &BTreeMap::new()).unwrap_or_default();
+        let touchpads = current_touchpads(&xcb_connection).unwrap_or_default();
 
         let atoms = XcbAtoms::new(&xcb_connection)
             .context("Failed to get XCB atoms")?
@@ -572,7 +592,9 @@ impl X11Client {
 
             pointer_device_states,
 
-            supports_xinput_gestures,
+            xinput_support,
+            touches: ActiveTouches::default(),
+            touchpads,
 
             clipboard,
             clipboard_item: None,
@@ -1161,6 +1183,9 @@ impl X11Client {
             Event::XinputButtonPress(event) => {
                 let window = self.get_window(event.event)?;
                 let mut state = self.0.borrow_mut();
+                if state.xinput_support.touch && is_touch_emulation(event.flags, event.detail) {
+                    return Some(());
+                }
 
                 let modifiers = modifiers_from_xinput_info(event.mods);
                 state.modifiers = modifiers;
@@ -1238,6 +1263,9 @@ impl X11Client {
             Event::XinputButtonRelease(event) => {
                 let window = self.get_window(event.event)?;
                 let mut state = self.0.borrow_mut();
+                if state.xinput_support.touch && is_touch_emulation(event.flags, event.detail) {
+                    return Some(());
+                }
                 let modifiers = modifiers_from_xinput_info(event.mods);
                 state.modifiers = modifiers;
 
@@ -1263,6 +1291,13 @@ impl X11Client {
             Event::XinputMotion(event) => {
                 let window = self.get_window(event.event)?;
                 let mut state = self.0.borrow_mut();
+                if state.xinput_support.touch
+                    && event
+                        .flags
+                        .contains(xinput::PointerEventFlags::POINTER_EMULATED)
+                {
+                    return Some(());
+                }
                 state.restore_cursor_after_hide();
                 if window.is_blocked() {
                     // We want to set the cursor to the default arrow
@@ -1366,6 +1401,9 @@ impl X11Client {
                 ) {
                     state.pointer_device_states = pointer_device_states;
                 }
+                if let Some(touchpads) = current_touchpads(&state.xcb_connection) {
+                    state.touchpads = touchpads;
+                }
             }
             Event::XinputDeviceChanged(event) => {
                 let mut state = self.0.borrow_mut();
@@ -1430,6 +1468,46 @@ impl X11Client {
                     modifiers,
                     phase: gpui::TouchPhase::Ended,
                 }));
+            }
+            Event::XinputTouchBegin(event) => {
+                let window = self.get_window(event.event)?;
+                let mut state = self.0.borrow_mut();
+                if state.touchpads.contains(&event.sourceid) {
+                    return Some(());
+                }
+                let position = point(
+                    px(event.event_x as f32 / u16::MAX as f32 / state.scale_factor),
+                    px(event.event_y as f32 / u16::MAX as f32 / state.scale_factor),
+                );
+                let events = state
+                    .touches
+                    .start((event.sourceid, event.detail), window, position);
+                drop(state);
+                dispatch_touches(events);
+            }
+            Event::XinputTouchUpdate(event) => {
+                let mut state = self.0.borrow_mut();
+                let position = point(
+                    px(event.event_x as f32 / u16::MAX as f32 / state.scale_factor),
+                    px(event.event_y as f32 / u16::MAX as f32 / state.scale_factor),
+                );
+                let moved = state
+                    .touches
+                    .moved(&(event.sourceid, event.detail), position);
+                drop(state);
+                dispatch_touches(moved);
+            }
+            Event::XinputTouchEnd(event) => {
+                let mut state = self.0.borrow_mut();
+                let position = point(
+                    px(event.event_x as f32 / u16::MAX as f32 / state.scale_factor),
+                    px(event.event_y as f32 / u16::MAX as f32 / state.scale_factor),
+                );
+                let touch = (event.sourceid, event.detail);
+                let moved = state.touches.moved(&touch, position);
+                let ended = state.touches.ended(&touch);
+                drop(state);
+                dispatch_touches(moved.into_iter().chain(ended));
             }
             _ => {}
         };
@@ -1626,7 +1704,7 @@ impl LinuxClient for X11Client {
         let scale_factor = state.scale_factor;
         let appearance = state.common.appearance;
         let compositor_gpu = state.compositor_gpu.take();
-        let supports_xinput_gestures = state.supports_xinput_gestures;
+        let xinput_support = state.xinput_support;
         let is_bgr = state
             .resource_database
             .get_string("Xft.rgba", "Xft.Rgba")
@@ -1646,7 +1724,7 @@ impl LinuxClient for X11Client {
             scale_factor,
             appearance,
             parent_window,
-            supports_xinput_gestures,
+            xinput_support,
             is_bgr,
         )?;
         check_reply(
@@ -2162,6 +2240,20 @@ pub fn mode_refresh_rate(mode: &randr::ModeInfo) -> Duration {
     Duration::from_micros(micros)
 }
 
+fn dispatch_touches(events: impl IntoIterator<Item = (X11WindowStatePtr, gpui::TouchEvent)>) {
+    for (window, event) in events {
+        window.handle_input(PlatformInput::Touch(event));
+    }
+}
+
+fn is_touch_emulation(flags: xinput::PointerEventFlags, detail: u32) -> bool {
+    flags.contains(xinput::PointerEventFlags::POINTER_EMULATED)
+        && matches!(
+            button_or_scroll_from_event_detail(detail),
+            Some(ButtonOrScroll::Button(_))
+        )
+}
+
 fn fp3232_to_f32(value: xinput::Fp3232) -> f32 {
     value.integral as f32 + value.frac as f32 / u32::MAX as f32
 }
@@ -2423,6 +2515,30 @@ fn current_pointer_device_states(
         log::error!("Found no xinput mouse pointers.");
     }
     Some(pointer_device_states)
+}
+
+/// Touchpads report their fingers as touches that the pointer already turns into motion.
+fn current_touchpads(xcb_connection: &XCBConnection) -> Option<BTreeSet<xinput::DeviceId>> {
+    let devices = get_reply(
+        || "Failed to query XInput devices",
+        xcb_connection.xinput_xi_query_device(XINPUT_ALL_DEVICES),
+    )
+    .log_err()?;
+    Some(
+        devices
+            .infos
+            .iter()
+            .filter(|info| {
+                info.classes.iter().any(|class| {
+                    class
+                        .data
+                        .as_touch()
+                        .is_some_and(|touch| touch.mode == xinput::TouchMode::DEPENDENT)
+                })
+            })
+            .map(|info| info.deviceid)
+            .collect(),
+    )
 }
 
 /// Returns true if the device is a pointer device. Does not include pointer device groups.
